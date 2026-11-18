@@ -322,7 +322,9 @@ public enum SnapshotEvaluator {
             status: status,
             rule: rule,
             idleSeconds: decision.idleSeconds,
-            isRegularApp: desc.isRegularApp
+            isRegularApp: desc.isRegularApp,
+            backgroundCPUPercent: decision.backgroundCPUPercent,
+            frozenReason: frozenRecord?.reason
         )
     }
 

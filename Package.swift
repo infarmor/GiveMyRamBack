@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "GiveMyRamBack",
+    defaultLocalization: "ru",
     platforms: [
         .macOS(.v14)
     ],

@@ -1,0 +1,2612 @@
+{
+  "sourceLanguage": "ru",
+  "strings": {
+    "%@ · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "%lld МБ": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld MB"
+          }
+        }
+      }
+    },
+    "%lld мин": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld min"
+          }
+        }
+      }
+    },
+    "%lld проц.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld proc."
+          }
+        }
+      }
+    },
+    ", давление памяти: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ", memory pressure: %@"
+          }
+        }
+      }
+    },
+    ", фоновая нагрузка CPU %lld%%": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ", background CPU %lld%%"
+          }
+        }
+      }
+    },
+    "10 мин": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "10 min"
+          }
+        }
+      }
+    },
+    "20 мин": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "20 min"
+          }
+        }
+      }
+    },
+    "30 мин": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30 min"
+          }
+        }
+      }
+    },
+    "5 мин": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 min"
+          }
+        }
+      }
+    },
+    "Give my ram back": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Give my ram back"
+          }
+        }
+      }
+    },
+    "PID %d · Автопауза включена": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PID %d · Auto-pause on"
+          }
+        }
+      }
+    },
+    "PID %d · Только вручную": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PID %d · Manual only"
+          }
+        }
+      }
+    },
+    "macOS уже убрала из оперативной памяти %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS has already moved %@ out of RAM."
+          }
+        }
+      }
+    },
+    "·": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "·"
+          }
+        }
+      }
+    },
+    "· Swap %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "· Swap %@"
+          }
+        }
+      }
+    },
+    "Авто": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auto"
+          }
+        }
+      }
+    },
+    "Автоматическая пауза": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatic pause"
+          }
+        }
+      }
+    },
+    "Автоматически ставить на паузу неактивные программы": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatically pause inactive apps"
+          }
+        }
+      }
+    },
+    "Автоматически ставить неактивные программы на паузу": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatically pause inactive apps"
+          }
+        }
+      }
+    },
+    "Автоматически ставить этот сервис на паузу при простое": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatically pause this service when idle"
+          }
+        }
+      }
+    },
+    "Автоматический режим отключён": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatic mode is off"
+          }
+        }
+      }
+    },
+    "Автопауза выключена — только вручную.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auto-pause is off — manual only."
+          }
+        }
+      }
+    },
+    "Автопауза сервиса (%@)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Service auto-paused (%@)"
+          }
+        }
+      }
+    },
+    "Активно": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Active"
+          }
+        }
+      }
+    },
+    "Аудио": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio"
+          }
+        }
+      }
+    },
+    "Батарея": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Battery"
+          }
+        }
+      }
+    },
+    "Белый список": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Protected"
+          }
+        }
+      }
+    },
+    "Буфер обмена": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clipboard"
+          }
+        }
+      }
+    },
+    "Быстрая пауза": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fast pause"
+          }
+        }
+      }
+    },
+    "Быстро": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fast"
+          }
+        }
+      }
+    },
+    "Быстрый режим (%lld мин)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fast mode (%lld min)"
+          }
+        }
+      }
+    },
+    "В DRAM сейчас: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In RAM now: %@"
+          }
+        }
+      }
+    },
+    "В белом списке": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Protected"
+          }
+        }
+      }
+    },
+    "Вдвое быстрее в жёлтой зоне и вчетверо в красной": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Twice as fast when memory is tight, four times when it's critical"
+          }
+        }
+      }
+    },
+    "Вдвое сокращает паузу ожидания без зарядки": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Halves the waiting time when running on battery"
+          }
+        }
+      }
+    },
+    "Вернуть": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume"
+          }
+        }
+      }
+    },
+    "Вернуть RAM (%lld · ~%@)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Free RAM (%1$lld · ~%2$@)"
+          }
+        }
+      }
+    },
+    "Вернуть RAM сейчас": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Free RAM now"
+          }
+        }
+      }
+    },
+    "Вернуть в работу": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume"
+          }
+        }
+      }
+    },
+    "Вернуть в строку меню": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back to the menu bar"
+          }
+        }
+      }
+    },
+    "Версия %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version %@"
+          }
+        }
+      }
+    },
+    "Версия %@ — последняя. Проверено %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version %1$@ is the latest. Checked %2$@"
+          }
+        }
+      }
+    },
+    "Видео / Задача": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Video / Task"
+          }
+        }
+      }
+    },
+    "Включено": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enabled"
+          }
+        }
+      }
+    },
+    "Включено: клик по иконке замороженной программы сразу её размораживает": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enabled: clicking a paused app's icon resumes it right away"
+          }
+        }
+      }
+    },
+    "Возвращено %@ в DRAM": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ of RAM given back"
+          }
+        }
+      }
+    },
+    "Возобновлено (%@)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resumed (%@)"
+          }
+        }
+      }
+    },
+    "Возобновлено после предыдущего запуска": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resumed after the previous session"
+          }
+        }
+      }
+    },
+    "Все": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All"
+          }
+        }
+      }
+    },
+    "Все фоновые обработаны": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing left to pause"
+          }
+        }
+      }
+    },
+    "Всё необязательно: приложение работает и без этого.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All optional: the app works without these."
+          }
+        }
+      }
+    },
+    "Всё происходит само, мгновенно и с того же места.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It happens on its own, instantly, right where you left off."
+          }
+        }
+      }
+    },
+    "Всё это можно поменять позже в настройках.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can change all of this later in Settings."
+          }
+        }
+      }
+    },
+    "Вы поставили правило «Защита».": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You set the “Protected” rule."
+          }
+        }
+      }
+    },
+    "Вы сейчас работаете в этой программе.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You're using this app right now."
+          }
+        }
+      }
+    },
+    "ГБ": {
+      "comment": "gigabytes",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GB"
+          }
+        }
+      }
+    },
+    "Готово": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        }
+      }
+    },
+    "Далее": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next"
+          }
+        }
+      }
+    },
+    "Для автозапуска запустите пакет Give my ram back.app (%@).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To launch at login, run the Give my ram back.app bundle (%@)."
+          }
+        }
+      }
+    },
+    "Добро пожаловать": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Welcome"
+          }
+        }
+      }
+    },
+    "Доступна версия %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version %@ is available"
+          }
+        }
+      }
+    },
+    "Доступна версия %@ (у вас %@)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version %1$@ is available (you have %2$@)"
+          }
+        }
+      }
+    },
+    "Её окно видно на экране.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Its window is visible on screen."
+          }
+        }
+      }
+    },
+    "Ждёт нехватки памяти": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for memory pressure"
+          }
+        }
+      }
+    },
+    "Журнал": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log"
+          }
+        }
+      }
+    },
+    "За 7 дней: пауз %lld · на паузе %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last 7 days: %1$lld pauses · %2$@ paused"
+          }
+        }
+      }
+    },
+    "Закрепить отдельным окном": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open in a separate window"
+          }
+        }
+      }
+    },
+    "Закрыть и открыть заново для полного сброса накопленной памяти": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quit and reopen to fully reset accumulated memory"
+          }
+        }
+      }
+    },
+    "Заморожено (%@, %@)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paused (%1$@, %2$@)"
+          }
+        }
+      }
+    },
+    "Занимает %@ — меньше порога %lld МБ, поэтому автоматически не замораживается.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uses %1$@ — below the %2$lld MB threshold, so it isn't paused automatically."
+          }
+        }
+      }
+    },
+    "Запускать при входе в macOS": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Launch at login"
+          }
+        }
+      }
+    },
+    "Затемняет окно и показывает «На паузе», чтобы его не путали с зависшим": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dims the window and shows “Paused” so it isn't mistaken for a hung app"
+          }
+        }
+      }
+    },
+    "Защита": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Protected"
+          }
+        }
+      }
+    },
+    "Защита: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Protected: %@"
+          }
+        }
+      }
+    },
+    "Защищать источник буфера обмена": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Protect the clipboard source"
+          }
+        }
+      }
+    },
+    "Защищать терминалы, IDE и системные утилиты": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Protect terminals, IDEs and system utilities"
+          }
+        }
+      }
+    },
+    "Играет звук — пауза оборвала бы воспроизведение.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Playing audio — pausing would cut playback."
+          }
+        }
+      }
+    },
+    "Из неё вы последний раз копировали — без неё вставка может зависнуть.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You copied from it last — pasting could hang without it."
+          }
+        }
+      }
+    },
+    "Иконка + счётчик": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Icon + count"
+          }
+        }
+      }
+    },
+    "Иконка в строке меню": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menu bar icon"
+          }
+        }
+      }
+    },
+    "Иначе программы ждут, пока памяти станет мало. Сразу на паузу встанут только те, что нагружают процессор в фоне.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otherwise apps wait until memory runs low. Only apps that use CPU in the background are paused right away."
+          }
+        }
+      }
+    },
+    "Индикатор в строке меню": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menu bar indicator"
+          }
+        }
+      }
+    },
+    "Использует микрофон — возможно, идёт звонок или запись.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Using the microphone — maybe a call or a recording."
+          }
+        }
+      }
+    },
+    "История действий пока пуста": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No activity yet"
+          }
+        }
+      }
+    },
+    "КБ": {
+      "comment": "kilobytes",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KB"
+          }
+        }
+      }
+    },
+    "Как работать": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How it should work"
+          }
+        }
+      }
+    },
+    "Как разбудить программу": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How to wake an app"
+          }
+        }
+      }
+    },
+    "Клик по иконке в Dock": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click on the Dock icon"
+          }
+        }
+      }
+    },
+    "Кликните по её окну": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Click its window"
+          }
+        }
+      }
+    },
+    "Критично": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Critical"
+          }
+        }
+      }
+    },
+    "Кэш": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cache"
+          }
+        }
+      }
+    },
+    "МБ": {
+      "comment": "megabytes",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MB"
+          }
+        }
+      }
+    },
+    "Мессенджеры на паузе не присылают уведомлений. Не трогать:": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paused messengers don't deliver notifications. Leave alone:"
+          }
+        }
+      }
+    },
+    "Микрофон": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microphone"
+          }
+        }
+      }
+    },
+    "Минимальный размер в памяти": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minimum memory size"
+          }
+        }
+      }
+    },
+    "Мягкий перезапуск для сброса памяти": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soft restart to reset memory"
+          }
+        }
+      }
+    },
+    "На паузе": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paused"
+          }
+        }
+      }
+    },
+    "На паузе · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paused · %@"
+          }
+        }
+      }
+    },
+    "На паузе · PID %d": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paused · PID %d"
+          }
+        }
+      }
+    },
+    "На паузе · кликните, чтобы разбудить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paused · click to wake"
+          }
+        }
+      }
+    },
+    "На паузе с %@ (%@).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paused since %1$@ (%2$@)."
+          }
+        }
+      }
+    },
+    "На паузе: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paused: %@"
+          }
+        }
+      }
+    },
+    "На паузу поставлено приложений: %lld (~%@)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apps paused: %1$lld (~%2$@)"
+          }
+        }
+      }
+    },
+    "Нагрузка": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elevated"
+          }
+        }
+      }
+    },
+    "Назад": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back"
+          }
+        }
+      }
+    },
+    "Настройки": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings"
+          }
+        }
+      }
+    },
+    "Настройки (⌘,)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings (⌘,)"
+          }
+        }
+      }
+    },
+    "Не даёт Mac уснуть: видео, звонок или загрузка.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keeping the Mac awake: video, a call or a download."
+          }
+        }
+      }
+    },
+    "Не мешает работе": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stays out of your way"
+          }
+        }
+      }
+    },
+    "Не ставится на паузу:": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not paused because:"
+          }
+        }
+      }
+    },
+    "Не трогает активные окна, звук, звонки, загрузки, терминалы и окна, которые видно на экране.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leaves alone the active app, audio, calls, downloads, terminals and windows you can see."
+          }
+        }
+      }
+    },
+    "Не трогать видео, звонки и загрузки": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leave video, calls and downloads alone"
+          }
+        }
+      }
+    },
+    "Не трогать видимые окна": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leave visible windows alone"
+          }
+        }
+      }
+    },
+    "Не трогать звук и микрофон": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leave audio and microphone apps alone"
+          }
+        }
+      }
+    },
+    "Не удалось запросить завершение приложения": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't ask the app to quit"
+          }
+        }
+      }
+    },
+    "Не удалось проверить обновления": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't check for updates"
+          }
+        }
+      }
+    },
+    "Неактивна %@, но включён режим «Только при нехватке памяти»: программа ждёт, пока памяти станет мало.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inactive for %@, but “Only under memory pressure” is on: the app waits until memory runs low."
+          }
+        }
+      }
+    },
+    "Неактивна %@. Пауза через %@ (таймаут %@).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inactive for %1$@. Pausing in %2$@ (timeout %3$@)."
+          }
+        }
+      }
+    },
+    "Недавно запущено": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Just launched"
+          }
+        }
+      }
+    },
+    "Недавно проснулась — даём ей поработать хотя бы полминуты.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Just woke up — giving it at least half a minute."
+          }
+        }
+      }
+    },
+    "Нет подходящих приложений": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No matching apps"
+          }
+        }
+      }
+    },
+    "Нет приложений на паузе": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No paused apps"
+          }
+        }
+      }
+    },
+    "Ниже порога %lld МБ": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Below %lld MB"
+          }
+        }
+      }
+    },
+    "Ноль процессора": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zero CPU"
+          }
+        }
+      }
+    },
+    "Норма": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Normal"
+          }
+        }
+      }
+    },
+    "Нужен доступ «Универсальный доступ», иначе программу на паузе разбудит только клик по её окну или переключение на неё": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Needs Accessibility access; otherwise a paused app wakes only when you click its window or switch to it"
+          }
+        }
+      }
+    },
+    "Ожидание до паузы": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Idle time before pausing"
+          }
+        }
+      }
+    },
+    "Окна на паузе затемнены и подписаны «На паузе».": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paused windows are dimmed and labelled “Paused”."
+          }
+        }
+      }
+    },
+    "Окно на экране": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visible window"
+          }
+        }
+      }
+    },
+    "Особые правила (%lld)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Custom rules (%lld)"
+          }
+        }
+      }
+    },
+    "Открыть Give my ram back": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Give my ram back"
+          }
+        }
+      }
+    },
+    "Отмена": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        }
+      }
+    },
+    "Отмечать окна на паузе": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mark paused windows"
+          }
+        }
+      }
+    },
+    "Отсчёт начинается, только когда окно скрыто, свёрнуто или перекрыто": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The countdown starts only when the window is hidden, minimized or covered"
+          }
+        }
+      }
+    },
+    "Очистить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear"
+          }
+        }
+      }
+    },
+    "Памяти критически мало: таймаут вчетверо короче.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Memory is critically low: timeout is four times shorter."
+          }
+        }
+      }
+    },
+    "Памяти не хватает: таймаут вдвое короче.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Memory is tight: timeout is halved."
+          }
+        }
+      }
+    },
+    "Память растёт: +%@ за последние пару минут.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Memory is growing: +%@ in the last couple of minutes."
+          }
+        }
+      }
+    },
+    "Пауза": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pause"
+          }
+        }
+      }
+    },
+    "Пауза после пробуждения": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cooldown after wake"
+          }
+        }
+      }
+    },
+    "Пауза фона после %lld мин бездействия": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Background apps pause after %lld min idle"
+          }
+        }
+      }
+    },
+    "Пауза через %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pausing in %@"
+          }
+        }
+      }
+    },
+    "Пауза — не закрытие": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paused, not quit"
+          }
+        }
+      }
+    },
+    "Перезапуск отменён: приложение ожидает подтверждения": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart cancelled: the app is waiting for confirmation"
+          }
+        }
+      }
+    },
+    "Перезапустить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart"
+          }
+        }
+      }
+    },
+    "Перезапустить (сбросить память)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart (reset memory)"
+          }
+        }
+      }
+    },
+    "Переключитесь на неё": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch to it"
+          }
+        }
+      }
+    },
+    "Питание": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Power"
+          }
+        }
+      }
+    },
+    "Питание от батареи": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On battery power"
+          }
+        }
+      }
+    },
+    "Поиск": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search"
+          }
+        }
+      }
+    },
+    "Поиск фоновых процессов (≥ 30 МБ)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search background processes (≥ 30 MB)"
+          }
+        }
+      }
+    },
+    "Пока памяти хватает, пауза почти ничего не освобождает, а уведомления пропадают. В этом режиме неактивные программы ждут жёлтой зоны; сразу на паузу встают только те, что нагружают процессор в фоне (≥ %lld%%)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "While there's enough memory, pausing frees almost nothing and silences notifications. In this mode idle apps wait for memory pressure; only apps using background CPU (≥ %lld%%) are paused right away"
+          }
+        }
+      }
+    },
+    "Показать знакомство с приложением": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show the introduction"
+          }
+        }
+      }
+    },
+    "Последние штрихи": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finishing touches"
+          }
+        }
+      }
+    },
+    "Поставить на паузу": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pause"
+          }
+        }
+      }
+    },
+    "Поставить сервис «%@» на паузу?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pause the “%@” service?"
+          }
+        }
+      }
+    },
+    "Почему?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Why?"
+          }
+        }
+      }
+    },
+    "Почта": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mail"
+          }
+        }
+      }
+    },
+    "Правило «Быстро»: базовый таймаут %lld мин.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“Fast” rule: base timeout %lld min."
+          }
+        }
+      }
+    },
+    "Правило для приложения": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rule for this app"
+          }
+        }
+      }
+    },
+    "Приложения": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apps"
+          }
+        }
+      }
+    },
+    "Причина: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reason: %@."
+          }
+        }
+      }
+    },
+    "Пробуждение": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waking"
+          }
+        }
+      }
+    },
+    "Пробуждение по иконке в Dock": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wake from the Dock icon"
+          }
+        }
+      }
+    },
+    "Проверить сейчас": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check now"
+          }
+        }
+      }
+    },
+    "Проверять обновления": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check for updates"
+          }
+        }
+      }
+    },
+    "Программа замирает целиком (SIGSTOP) и ничего не теряет: вкладки, документы и состояние остаются на месте.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The app is frozen as a whole (SIGSTOP) and loses nothing: tabs, documents and state stay right where they were."
+          }
+        }
+      }
+    },
+    "Программа на паузе не может ответить Dock'у. С доступом «Универсальный доступ» клик по её иконке сразу её разбудит.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A paused app can't respond to the Dock. With Accessibility access, clicking its icon wakes it right away."
+          }
+        }
+      }
+    },
+    "Программа на паузе не тратит процессор, а её память macOS освобождает в первую очередь.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A paused app uses no CPU, and macOS frees its memory first."
+          }
+        }
+      }
+    },
+    "Программа сейчас активна.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The app is active."
+          }
+        }
+      }
+    },
+    "Программа, из которой вы последний раз копировали, не встанет на паузу — иначе вставка может зависнуть": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The app you last copied from won't be paused — otherwise pasting could hang"
+          }
+        }
+      }
+    },
+    "Программы": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apps"
+          }
+        }
+      }
+    },
+    "Продолжить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue"
+          }
+        }
+      }
+    },
+    "Продолжить и больше не спрашивать": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue and don't ask again"
+          }
+        }
+      }
+    },
+    "Проснётся от клика по окну, переключения на неё или ⌃⌥⌘U.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wakes when you click its window, switch to it, or press ⌃⌥⌘U."
+          }
+        }
+      }
+    },
+    "Процессов: %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Processes: %lld"
+          }
+        }
+      }
+    },
+    "Процессор она больше не тратит. Её память macOS освободит, как только та понадобится другим программам.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It no longer uses CPU. macOS will free its memory as soon as other apps need it."
+          }
+        }
+      }
+    },
+    "Работа от батареи: таймаут вдвое короче.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On battery: timeout is halved."
+          }
+        }
+      }
+    },
+    "Работает из любой программы, без дополнительных разрешений": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Works from any app, no extra permissions needed"
+          }
+        }
+      }
+    },
+    "Работает из любой программы, если что-то пошло не так.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Works from any app if something goes wrong."
+          }
+        }
+      }
+    },
+    "Раз в день спрашивает у GitHub, вышла ли новая версия. Никаких данных о вас не отправляется": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Asks GitHub once a day whether a new version is out. Nothing about you is sent"
+          }
+        }
+      }
+    },
+    "Раз в день спрашивать GitHub о новой версии.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask GitHub about new versions once a day."
+          }
+        }
+      }
+    },
+    "Разморозить (%lld)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume (%lld)"
+          }
+        }
+      }
+    },
+    "Разморозить все программы и выйти": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume all apps and quit"
+          }
+        }
+      }
+    },
+    "Разморозить всё": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume all"
+          }
+        }
+      }
+    },
+    "Разморозить всё и выйти": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume all and quit"
+          }
+        }
+      }
+    },
+    "Разморозить всё: ⌃⌥⌘U": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume all: ⌃⌥⌘U"
+          }
+        }
+      }
+    },
+    "Разрешить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow"
+          }
+        }
+      }
+    },
+    "Режим «Быстро»": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“Fast” mode"
+          }
+        }
+      }
+    },
+    "Ручной режим": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manual only"
+          }
+        }
+      }
+    },
+    "Сбросить": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset"
+          }
+        }
+      }
+    },
+    "Свободно и кэш: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Free and cache: %@"
+          }
+        }
+      }
+    },
+    "Сегодня": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Today"
+          }
+        }
+      }
+    },
+    "Сервис на паузе (%@, %@)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Service paused (%1$@, %2$@)"
+          }
+        }
+      }
+    },
+    "Сервисы": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Services"
+          }
+        }
+      }
+    },
+    "Сервисы (%lld)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Services (%lld)"
+          }
+        }
+      }
+    },
+    "Сервисы на паузе не просыпаются сами — зависящие от них программы могут зависнуть": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paused services don't wake on their own — apps that depend on them may hang"
+          }
+        }
+      }
+    },
+    "Сеть": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AC power"
+          }
+        }
+      }
+    },
+    "Сжато": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compressed"
+          }
+        }
+      }
+    },
+    "Система": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System"
+          }
+        }
+      }
+    },
+    "Система / Dev": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System / Dev"
+          }
+        }
+      }
+    },
+    "Скачать": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download"
+          }
+        }
+      }
+    },
+    "Скачать версию %@…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download version %@…"
+          }
+        }
+      }
+    },
+    "Скрыть до следующей версии": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide until the next version"
+          }
+        }
+      }
+    },
+    "Событий: %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Events: %lld"
+          }
+        }
+      }
+    },
+    "События": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Events"
+          }
+        }
+      }
+    },
+    "Сообщения": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Messages"
+          }
+        }
+      }
+    },
+    "Список программ, кнопки «Пауза» и «Вернуть», журнал и настройки.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App list, Pause and Resume buttons, the log and settings."
+          }
+        }
+      }
+    },
+    "Ставит на паузу программы, которыми вы давно не пользуетесь, и возвращает память и заряд батареи.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pauses apps you haven't used in a while and gives you back memory and battery."
+          }
+        }
+      }
+    },
+    "Строка меню и система": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menu bar and system"
+          }
+        }
+      }
+    },
+    "Счётчик + RAM": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Count + RAM"
+          }
+        }
+      }
+    },
+    "Терминал, IDE или системная утилита — такие не трогаем.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A terminal, IDE or system utility — those are left alone."
+          }
+        }
+      }
+    },
+    "Только иконка": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Icon only"
+          }
+        }
+      }
+    },
+    "Только когда памяти мало": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only when memory is low"
+          }
+        }
+      }
+    },
+    "Только при нехватке памяти": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only under memory pressure"
+          }
+        }
+      }
+    },
+    "Только что запущена.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Just launched."
+          }
+        }
+      }
+    },
+    "Тяжёлые": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heavy"
+          }
+        }
+      }
+    },
+    "Тяжёлых фоновых процессов не найдено": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No heavy background processes"
+          }
+        }
+      }
+    },
+    "У вас %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You have %@"
+          }
+        }
+      }
+    },
+    "Умная защита": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smart protection"
+          }
+        }
+      }
+    },
+    "Ускорять при нехватке RAM": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speed up when RAM is low"
+          }
+        }
+      }
+    },
+    "Фоновая нагрузка CPU — %lld%%. Сразу на паузу ставятся программы от %lld%%.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Background CPU is %1$lld%%. Apps at %2$lld%% or more are paused right away."
+          }
+        }
+      }
+    },
+    "Фоновые сервисы не просыпаются сами: у них нет окна, по которому можно кликнуть. Программы, которые с ними работают (синхронизация, плагины, помощники), могут зависнуть, пока вы не нажмёте «Вернуть».": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Background services don't wake on their own: they have no window to click. Apps that talk to them (sync, plug-ins, helpers) may hang until you press Resume."
+          }
+        }
+      }
+    },
+    "Через": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After"
+          }
+        }
+      }
+    },
+    "Через Cmd+Tab, Dock, Mission Control или просто откройте программу снова.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "With Cmd+Tab, the Dock, Mission Control, or just open the app again."
+          }
+        }
+      }
+    },
+    "Чтобы память освобождалась без вашего участия.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "So memory is freed without you lifting a finger."
+          }
+        }
+      }
+    },
+    "Экономия от батареи": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Battery saver"
+          }
+        }
+      }
+    },
+    "Это утилита без иконки в Dock. Такие программы не становятся активными, и переключением их не разбудить, поэтому автоматически они не замораживаются.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is a utility without a Dock icon. Such apps never become active and can't be woken by switching, so they aren't paused automatically."
+          }
+        }
+      }
+    },
+    "автопауза сервиса": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "service auto-pause"
+          }
+        }
+      }
+    },
+    "активация окна": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "window activated"
+          }
+        }
+      }
+    },
+    "бездействия": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "of inactivity"
+          }
+        }
+      }
+    },
+    "в среднем возвращено": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "average freed"
+          }
+        }
+      }
+    },
+    "в фоне": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "in background"
+          }
+        }
+      }
+    },
+    "вручную": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "manually"
+          }
+        }
+      }
+    },
+    "выход из приложения": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "app quit"
+          }
+        }
+      }
+    },
+    "горячая клавиша %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "shortcut %@"
+          }
+        }
+      }
+    },
+    "завершение работы": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "shutting down"
+          }
+        }
+      }
+    },
+    "из %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "of %@"
+          }
+        }
+      }
+    },
+    "клик по иконке в Dock": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dock icon click"
+          }
+        }
+      }
+    },
+    "клик по окну": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "window click"
+          }
+        }
+      }
+    },
+    "кнопка «Вернуть RAM»": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“Free RAM” button"
+          }
+        }
+      }
+    },
+    "кнопка «Разморозить»": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“Resume” button"
+          }
+        }
+      }
+    },
+    "контекстное меню": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "context menu"
+          }
+        }
+      }
+    },
+    "м": {
+      "comment": "minutes unit",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "m"
+          }
+        }
+      }
+    },
+    "максимум": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "peak"
+          }
+        }
+      }
+    },
+    "на паузе": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "paused"
+          }
+        }
+      }
+    },
+    "неактивна %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "inactive for %@"
+          }
+        }
+      }
+    },
+    "открытие приложения": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "app opened"
+          }
+        }
+      }
+    },
+    "пауз": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pauses"
+          }
+        }
+      }
+    },
+    "переход фокуса": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "focus change"
+          }
+        }
+      }
+    },
+    "показ окна": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "window shown"
+          }
+        }
+      }
+    },
+    "пользователем": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "by you"
+          }
+        }
+      }
+    },
+    "правило «Защита»": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“Protected” rule"
+          }
+        }
+      }
+    },
+    "с": {
+      "comment": "seconds unit",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "s"
+          }
+        }
+      }
+    },
+    "с паузами": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "with pauses"
+          }
+        }
+      }
+    },
+    "ч": {
+      "comment": "hours unit",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "h"
+          }
+        }
+      }
+    },
+    "↑ +%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "↑ +%@"
+          }
+        }
+      }
+    },
+    "−%@ DRAM": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "−%@ RAM"
+          }
+        }
+      }
+    },
+    "⌃⌥⌘U — разморозить всё": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "⌃⌥⌘U — resume all"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

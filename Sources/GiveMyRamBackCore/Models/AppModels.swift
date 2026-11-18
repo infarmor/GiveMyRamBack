@@ -7,9 +7,9 @@ public enum MemoryPressureLevel: String, Codable, Sendable, CaseIterable {
 
     public var displayTitle: String {
         switch self {
-        case .normal: return "Норма"
-        case .warning: return "Нагрузка"
-        case .critical: return "Критично"
+        case .normal: return String(localized: "Норма")
+        case .warning: return String(localized: "Нагрузка")
+        case .critical: return String(localized: "Критично")
         }
     }
 }
@@ -21,9 +21,9 @@ public enum PowerSourceKind: String, Codable, Sendable {
 
     public var displayTitle: String {
         switch self {
-        case .ac: return "Сеть"
-        case .battery: return "Батарея"
-        case .unknown: return "Питание"
+        case .ac: return String(localized: "Сеть")
+        case .battery: return String(localized: "Батарея")
+        case .unknown: return String(localized: "Питание")
         }
     }
 }
@@ -206,9 +206,9 @@ public enum AppFreezeRule: String, Codable, Sendable, CaseIterable {
 
     public var displayTitle: String {
         switch self {
-        case .automatic: return "Авто"
-        case .fast: return "Быстро"
-        case .protected: return "Защита"
+        case .automatic: return String(localized: "Авто")
+        case .fast: return String(localized: "Быстро")
+        case .protected: return String(localized: "Защита")
         }
     }
 }
@@ -220,9 +220,9 @@ public enum MenuBarDisplayMode: String, Codable, Sendable, CaseIterable {
 
     public var displayTitle: String {
         switch self {
-        case .iconOnly: return "Только иконка"
-        case .frozenCount: return "Иконка + счётчик"
-        case .frozenAndRAM: return "Счётчик + RAM"
+        case .iconOnly: return String(localized: "Только иконка")
+        case .frozenCount: return String(localized: "Иконка + счётчик")
+        case .frozenAndRAM: return String(localized: "Счётчик + RAM")
         }
     }
 }
@@ -241,16 +241,16 @@ public enum ProtectionReason: String, Hashable, Sendable, Codable {
 
     public var shortLabel: String {
         switch self {
-        case .frontmost: return "Активно"
-        case .playingAudio: return "Аудио"
-        case .usingMicrophone: return "Микрофон"
-        case .preventingSleep: return "Видео / Задача"
-        case .builtInSafelist: return "Система / Dev"
-        case .userWhitelist: return "Белый список"
-        case .cooldownAfterWake: return "Пауза после пробуждения"
-        case .recentlyLaunched: return "Недавно запущено"
-        case .visibleOnScreen: return "Окно на экране"
-        case .clipboardOwner: return "Буфер обмена"
+        case .frontmost: return String(localized: "Активно")
+        case .playingAudio: return String(localized: "Аудио")
+        case .usingMicrophone: return String(localized: "Микрофон")
+        case .preventingSleep: return String(localized: "Видео / Задача")
+        case .builtInSafelist: return String(localized: "Система / Dev")
+        case .userWhitelist: return String(localized: "Белый список")
+        case .cooldownAfterWake: return String(localized: "Пауза после пробуждения")
+        case .recentlyLaunched: return String(localized: "Недавно запущено")
+        case .visibleOnScreen: return String(localized: "Окно на экране")
+        case .clipboardOwner: return String(localized: "Буфер обмена")
         }
     }
 }
@@ -285,6 +285,10 @@ public struct TrackedApp: Identifiable, Sendable, Equatable {
     /// `false` for menu-bar agents / accessory apps (no Dock icon). They never become frontmost,
     /// so nothing would wake them after a batch freeze.
     public let isRegularApp: Bool
+    /// Average CPU while in the background (what freezing would save).
+    public let backgroundCPUPercent: Double
+    /// Why the app was frozen (for the «Почему?» explanation), if it is frozen.
+    public let frozenReason: String?
 
     public var processCount: Int { pids.count }
     public var isWhitelisted: Bool { rule == .protected }
@@ -323,9 +327,13 @@ public struct TrackedApp: Identifiable, Sendable, Equatable {
         status: TrackedAppStatus,
         rule: AppFreezeRule = .automatic,
         idleSeconds: TimeInterval,
-        isRegularApp: Bool = true
+        isRegularApp: Bool = true,
+        backgroundCPUPercent: Double = 0,
+        frozenReason: String? = nil
     ) {
         self.isRegularApp = isRegularApp
+        self.backgroundCPUPercent = backgroundCPUPercent
+        self.frozenReason = frozenReason
         self.id = id
         self.bundleIdentifier = bundleIdentifier
         self.name = name
@@ -399,6 +407,8 @@ public struct FrozenRecord: Codable, Sendable, Equatable {
     public let frozenAt: Date
     public let footprintAtFreezeBytes: UInt64
     public let residentAtFreezeBytes: UInt64
+    /// Human-readable cause, e.g. «неактивно 12 мин» or «вручную». Optional for old state files.
+    public let reason: String?
 
     public init(
         appKey: String,
@@ -407,8 +417,10 @@ public struct FrozenRecord: Codable, Sendable, Equatable {
         identities: [ProcessIdentity],
         frozenAt: Date,
         footprintAtFreezeBytes: UInt64,
-        residentAtFreezeBytes: UInt64 = 0
+        residentAtFreezeBytes: UInt64 = 0,
+        reason: String? = nil
     ) {
+        self.reason = reason
         self.appKey = appKey
         self.appName = appName
         self.mainPID = mainPID
@@ -419,8 +431,8 @@ public struct FrozenRecord: Codable, Sendable, Equatable {
     }
 }
 
-public struct ActivityEvent: Identifiable, Sendable, Equatable {
-    public enum Kind: String, Sendable {
+public struct ActivityEvent: Identifiable, Sendable, Equatable, Codable {
+    public enum Kind: String, Sendable, Codable {
         case frozen
         case resumed
         case recovered
@@ -478,6 +490,10 @@ public struct EngineSettings: Codable, Equatable, Sendable {
     public var showFrozenOverlay: Bool
     /// The user has read the warning about pausing background services.
     public var acknowledgedServiceRisk: Bool
+    /// Ask GitHub once a day whether a newer release exists.
+    public var checkForUpdates: Bool
+    /// The first-run introduction has been shown.
+    public var hasCompletedOnboarding: Bool
 
     private enum CodingKeys: String, CodingKey {
         case isAutoFreezeEnabled, idleTimeoutMinutes, fastModeMinutes, minMemoryThresholdMB
@@ -485,6 +501,7 @@ public struct EngineSettings: Codable, Equatable, Sendable {
         case protectDevAndSystemTools, menuBarDisplayMode, appRules, appRuleDisplayNames
         case autoFreezeServiceKeys, keepVisibleWindowsAwake, protectClipboardOwner
         case freezeOnlyUnderPressure, unfreezeHotkeyEnabled, showFrozenOverlay, acknowledgedServiceRisk
+        case checkForUpdates, hasCompletedOnboarding
     }
 
     /// Tolerant decoding: missing keys (settings saved by an older build) fall back to defaults
@@ -511,6 +528,8 @@ public struct EngineSettings: Codable, Equatable, Sendable {
         unfreezeHotkeyEnabled = try c.decodeIfPresent(Bool.self, forKey: .unfreezeHotkeyEnabled) ?? d.unfreezeHotkeyEnabled
         showFrozenOverlay = try c.decodeIfPresent(Bool.self, forKey: .showFrozenOverlay) ?? d.showFrozenOverlay
         acknowledgedServiceRisk = try c.decodeIfPresent(Bool.self, forKey: .acknowledgedServiceRisk) ?? d.acknowledgedServiceRisk
+        checkForUpdates = try c.decodeIfPresent(Bool.self, forKey: .checkForUpdates) ?? d.checkForUpdates
+        hasCompletedOnboarding = try c.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? d.hasCompletedOnboarding
     }
 
     public init(
@@ -532,8 +551,12 @@ public struct EngineSettings: Codable, Equatable, Sendable {
         freezeOnlyUnderPressure: Bool = false,
         unfreezeHotkeyEnabled: Bool = true,
         showFrozenOverlay: Bool = true,
-        acknowledgedServiceRisk: Bool = false
+        acknowledgedServiceRisk: Bool = false,
+        checkForUpdates: Bool = true,
+        hasCompletedOnboarding: Bool = false
     ) {
+        self.checkForUpdates = checkForUpdates
+        self.hasCompletedOnboarding = hasCompletedOnboarding
         self.freezeOnlyUnderPressure = freezeOnlyUnderPressure
         self.unfreezeHotkeyEnabled = unfreezeHotkeyEnabled
         self.showFrozenOverlay = showFrozenOverlay
@@ -562,26 +585,30 @@ public struct EngineSettings: Codable, Equatable, Sendable {
 }
 
 public enum ByteFormatter {
+    private static var gbUnit: String { String(localized: "ГБ", comment: "gigabytes") }
+    private static var mbUnit: String { String(localized: "МБ", comment: "megabytes") }
+    private static var kbUnit: String { String(localized: "КБ", comment: "kilobytes") }
+
     public static func format(_ bytes: UInt64) -> String {
         let gb = Double(bytes) / 1_073_741_824.0
         if gb >= 1.0 {
-            return String(format: "%.2f ГБ", gb)
+            return String(format: "%.2f ", gb) + gbUnit
         }
         let mb = Double(bytes) / 1_048_576.0
         if mb >= 1.0 {
-            return String(format: "%.0f МБ", mb)
+            return String(format: "%.0f ", mb) + mbUnit
         }
         let kb = Double(bytes) / 1_024.0
-        return String(format: "%.0f КБ", max(0, kb))
+        return String(format: "%.0f ", max(0, kb)) + kbUnit
     }
 
     public static func formatCompact(_ bytes: UInt64) -> String {
         let gb = Double(bytes) / 1_073_741_824.0
         if gb >= 1.0 {
-            return String(format: "%.1fГБ", gb)
+            return String(format: "%.1f", gb) + gbUnit
         }
         let mb = Double(bytes) / 1_048_576.0
-        return String(format: "%.0fМБ", max(1, mb))
+        return String(format: "%.0f", max(1, mb)) + mbUnit
     }
 
     public static func formatDuration(_ seconds: TimeInterval) -> String {
@@ -589,12 +616,15 @@ public enum ByteFormatter {
         let hours = clamped / 3600
         let minutes = (clamped % 3600) / 60
         let secs = clamped % 60
+        let h = String(localized: "ч", comment: "hours unit")
+        let m = String(localized: "м", comment: "minutes unit")
+        let sUnit = String(localized: "с", comment: "seconds unit")
         if hours > 0 {
-            return String(format: "%dч %02dм", hours, minutes)
+            return "\(hours)\(h) " + String(format: "%02d", minutes) + m
         }
         if minutes > 0 {
-            return String(format: "%dм %02dс", minutes, secs)
+            return "\(minutes)\(m) " + String(format: "%02d", secs) + sUnit
         }
-        return "\(secs)с"
+        return "\(secs)\(sUnit)"
     }
 }

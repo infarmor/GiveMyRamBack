@@ -5,6 +5,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var engine: FreezeEngine
+    @ObservedObject var updates: UpdateChecker
     let onBack: () -> Void
     let onQuit: () -> Void
 
@@ -169,9 +170,9 @@ struct SettingsView: View {
                     HStack(alignment: .top, spacing: 8) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Клик по иконке в Dock")
-                            Text(isAccessibilityTrusted
-                                 ? "Включено: клик по иконке замороженной программы сразу её размораживает"
-                                 : "Нужен доступ «Универсальный доступ», иначе программу на паузе разбудит только клик по её окну или переключение на неё")
+                            (isAccessibilityTrusted
+                                 ? Text("Включено: клик по иконке замороженной программы сразу её размораживает")
+                                 : Text("Нужен доступ «Универсальный доступ», иначе программу на паузе разбудит только клик по её окну или переключение на неё"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -196,7 +197,7 @@ struct SettingsView: View {
 
                                 VStack(alignment: .leading, spacing: 1) {
                                     Text(item.name)
-                                    Text(item.rule == .fast ? "Быстрая пауза" : "Белый список")
+                                    (item.rule == .fast ? Text("Быстрая пауза") : Text("Белый список"))
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
@@ -221,6 +222,29 @@ struct SettingsView: View {
                         }
                     }
 
+                    Toggle(isOn: $engine.settings.checkForUpdates) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Проверять обновления")
+                            Text("Раз в день спрашивает у GitHub, вышла ли новая версия. Никаких данных о вас не отправляется")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    HStack {
+                        Text(updateStatusText)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        if updates.isChecking {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Button("Проверить сейчас") {
+                                Task { await updates.checkNow() }
+                            }
+                        }
+                    }
+
                     Toggle("Запускать при входе в macOS", isOn: Binding(
                         get: { launchAtLogin },
                         set: { toggleLaunchAtLogin(enabled: $0) }
@@ -234,6 +258,9 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    Button("Показать знакомство с приложением") {
+                        NotificationCenter.default.post(name: OnboardingRequest.notification, object: nil)
+                    }
                     Button {
                         onQuit()
                     } label: {
@@ -262,6 +289,20 @@ struct SettingsView: View {
         }
     }
 
+    private var updateStatusText: String {
+        if let release = updates.available {
+            return String(localized: "Доступна версия \(release.version) (у вас \(updates.currentVersion))")
+        }
+        if let error = updates.lastError {
+            return error
+        }
+        if let last = updates.lastCheck {
+            let when = last.formatted(date: .abbreviated, time: .shortened)
+            return String(localized: "Версия \(updates.currentVersion) — последняя. Проверено \(when)")
+        }
+        return String(localized: "Версия \(updates.currentVersion)")
+    }
+
     private func toggleLaunchAtLogin(enabled: Bool) {
         launchAtLoginError = nil
         do {
@@ -273,7 +314,7 @@ struct SettingsView: View {
             launchAtLogin = (SMAppService.mainApp.status == .enabled)
         } catch {
             launchAtLogin = (SMAppService.mainApp.status == .enabled)
-            launchAtLoginError = "Для автозапуска запустите пакет Give my ram back.app (\(error.localizedDescription))."
+            launchAtLoginError = String(localized: "Для автозапуска запустите пакет Give my ram back.app (\(error.localizedDescription)).")
         }
     }
 }

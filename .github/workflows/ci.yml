@@ -14,5 +14,7 @@ jobs:
         run: swift --version
       - name: Test
         run: swift test
+      - name: Check translations
+        run: python3 scripts/update_strings.py --check
       - name: Build app bundle
         run: ./scripts/build_app.sh release

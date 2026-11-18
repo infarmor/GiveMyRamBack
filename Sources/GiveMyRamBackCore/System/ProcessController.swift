@@ -139,7 +139,8 @@ public final class ProcessController: @unchecked Sendable {
         identities: [ProcessIdentity],
         footprintBytes: UInt64,
         residentBytes: UInt64 = 0,
-        now: Date = Date()
+        now: Date = Date(),
+        reason: String? = nil
     ) -> FrozenRecord? {
         guard !identities.isEmpty else { return nil }
 
@@ -157,7 +158,8 @@ public final class ProcessController: @unchecked Sendable {
             identities: ordered,
             frozenAt: now,
             footprintAtFreezeBytes: footprintBytes,
-            residentAtFreezeBytes: residentBytes
+            residentAtFreezeBytes: residentBytes,
+            reason: reason
         )
         lock.lock()
         let previous = recordsByKey[appKey]
@@ -196,7 +198,8 @@ public final class ProcessController: @unchecked Sendable {
             identities: frozenIdentities,
             frozenAt: now,
             footprintAtFreezeBytes: footprintBytes,
-            residentAtFreezeBytes: residentBytes
+            residentAtFreezeBytes: residentBytes,
+            reason: reason
         )
 
         lock.lock()

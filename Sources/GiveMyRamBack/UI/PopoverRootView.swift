@@ -2,15 +2,16 @@ import GiveMyRamBackCore
 import SwiftUI
 
 enum MainTab: String, CaseIterable, Identifiable {
-    case apps = "Приложения"
-    case services = "Сервисы"
-    case log = "Журнал"
+    case apps
+    case services
+    case log
 
     var id: String { rawValue }
 }
 
 struct PopoverRootView: View {
     @ObservedObject var engine: FreezeEngine
+    @ObservedObject var updates: UpdateChecker
     let isDetached: Bool
     let onToggleDetach: () -> Void
     let onQuit: () -> Void
@@ -35,6 +36,7 @@ struct PopoverRootView: View {
             if isShowingSettings {
                 SettingsView(
                     engine: engine,
+                    updates: updates,
                     onBack: {
                         withAnimation(.snappy(duration: 0.22)) {
                             isShowingSettings = false
@@ -61,6 +63,9 @@ struct PopoverRootView: View {
     private var dashboardView: some View {
         VStack(spacing: 12) {
             headerView
+            if let release = updates.visibleUpdate {
+                updateBanner(release)
+            }
             memorySummaryCard
             actionStrip
 
@@ -87,14 +92,48 @@ struct PopoverRootView: View {
         .padding(14)
     }
 
+    private func updateBanner(_ release: ReleaseInfo) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "arrow.down.circle.fill")
+                .font(.system(size: 14))
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Доступна версия \(release.version)")
+                    .font(.system(size: 12, weight: .semibold))
+                Text("У вас \(updates.currentVersion)")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button("Скачать") {
+                NSWorkspace.shared.open(release.url)
+            }
+            .buttonStyle(MonochromePillButtonStyle(prominent: true))
+            Button {
+                updates.dismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 20, height: 20)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Скрыть до следующей версии")
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 8)
+        .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 11))
+        .overlay(RoundedRectangle(cornerRadius: 11).stroke(Color.primary.opacity(0.14), lineWidth: 0.5))
+    }
+
     private func tabLabel(_ tab: MainTab) -> String {
         switch tab {
         case .apps:
-            return "Приложения"
+            return String(localized: "Приложения")
         case .services:
-            return engine.services.isEmpty ? "Сервисы" : "Сервисы (\(engine.services.count))"
+            return engine.services.isEmpty ? String(localized: "Сервисы") : String(localized: "Сервисы (\(engine.services.count))")
         case .log:
-            return "Журнал"
+            return String(localized: "Журнал")
         }
     }
 
@@ -146,7 +185,7 @@ struct PopoverRootView: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .help(isDetached ? "Вернуть в строку меню" : "Закрепить отдельным окном")
+            .help(isDetached ? Text("Вернуть в строку меню") : Text("Закрепить отдельным окном"))
 
             Button {
                 withAnimation(.snappy(duration: 0.22)) {
@@ -166,7 +205,7 @@ struct PopoverRootView: View {
 
     private var subtitleText: String {
         if !engine.settings.isAutoFreezeEnabled {
-            return "Автоматический режим отключён"
+            return String(localized: "Автоматический режим отключён")
         }
         let mins = max(
             1,
@@ -178,7 +217,7 @@ struct PopoverRootView: View {
                 ) / 60.0
             )
         )
-        return "Пауза фона после \(mins) мин бездействия"
+        return String(localized: "Пауза фона после \(mins) мин бездействия")
     }
 
     private var pressurePill: some View {
@@ -306,7 +345,7 @@ struct PopoverRootView: View {
         )
     }
 
-    private func legendItem(opacity: Double, label: String) -> some View {
+    private func legendItem(opacity: Double, label: LocalizedStringKey) -> some View {
         HStack(spacing: 4) {
             Circle()
                 .fill(Color.primary.opacity(opacity))
@@ -336,7 +375,7 @@ struct PopoverRootView: View {
 
             if engine.frozenCount > 0 {
                 Button {
-                    engine.resumeAll(reason: "кнопка «Разморозить»")
+                    engine.resumeAll(reason: String(localized: "кнопка «Разморозить»"))
                 } label: {
                     Text("Разморозить (\(engine.frozenCount))")
                         .padding(.vertical, 2)

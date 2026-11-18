@@ -10,10 +10,55 @@ struct ActivityLogView: View {
         return f
     }()
 
+    private var statsCard: some View {
+        let today = engine.stats.today()
+        let week = engine.stats.recent(7)
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Сегодня")
+                    .font(.system(size: 11.5, weight: .semibold))
+                Spacer()
+                Text("За 7 дней: пауз \(week.freezes) · на паузе \(ByteFormatter.formatDuration(week.pausedSeconds))")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.secondary)
+            }
+            HStack(spacing: 0) {
+                statTile(value: "\(today.freezes)", label: "пауз")
+                Divider().frame(height: 26)
+                statTile(value: ByteFormatter.formatCompact(today.averageReclaimedBytes), label: "в среднем возвращено")
+                Divider().frame(height: 26)
+                statTile(value: ByteFormatter.formatCompact(today.peakReclaimedBytes), label: "максимум")
+                Divider().frame(height: 26)
+                statTile(value: ByteFormatter.formatDuration(today.pausedSeconds), label: "с паузами")
+            }
+        }
+        .padding(10)
+        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 11))
+        .overlay(RoundedRectangle(cornerRadius: 11).stroke(Color.primary.opacity(0.08), lineWidth: 0.5))
+    }
+
+    private func statTile(value: String, label: LocalizedStringKey) -> some View {
+        VStack(spacing: 1) {
+            Text(value)
+                .font(.system(size: 13.5, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(label)
+                .font(.system(size: 9.5))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
     var body: some View {
         VStack(spacing: 8) {
+            statsCard
+
             HStack {
-                Text(engine.events.isEmpty ? "События" : "Событий: \(engine.events.count)")
+                (engine.events.isEmpty ? Text("События") : Text("Событий: \(engine.events.count)"))
                     .font(.system(size: 11.5, weight: .medium))
                     .foregroundStyle(.secondary)
                 Spacer()

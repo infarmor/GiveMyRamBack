@@ -2,11 +2,19 @@ import GiveMyRamBackCore
 import SwiftUI
 
 enum AppFilterMode: String, CaseIterable, Identifiable {
-    case heavy = "Тяжёлые"
-    case frozen = "На паузе"
-    case all = "Все"
+    case heavy
+    case frozen
+    case all
 
     var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .heavy: return String(localized: "Тяжёлые")
+        case .frozen: return String(localized: "На паузе")
+        case .all: return String(localized: "Все")
+        }
+    }
 }
 
 struct AppsListView: View {
@@ -70,7 +78,7 @@ struct AppsListView: View {
 
                 Picker("", selection: $filterMode) {
                     ForEach(AppFilterMode.allCases) { mode in
-                        Text(mode.rawValue).tag(mode)
+                        Text(mode.title).tag(mode)
                     }
                 }
                 .pickerStyle(.segmented)
@@ -83,7 +91,7 @@ struct AppsListView: View {
                     Image(systemName: filterMode == .frozen ? "snowflake" : "checkmark.circle")
                         .font(.system(size: 26, weight: .light))
                         .foregroundStyle(.secondary)
-                    Text(filterMode == .frozen ? "Нет приложений на паузе" : "Нет подходящих приложений")
+                    (filterMode == .frozen ? Text("Нет приложений на паузе") : Text("Нет подходящих приложений"))
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
@@ -265,7 +273,7 @@ private struct AppRowView: View {
                 .font(.system(size: 10.5, design: .monospaced))
                 .foregroundStyle(app.cpuPercent >= 35 ? .primary : .secondary)
         } else {
-            Text(app.processCount > 1 ? "\(app.processCount) проц." : "в фоне")
+            (app.processCount > 1 ? Text("\(app.processCount) проц.") : Text("в фоне"))
                 .font(.system(size: 10.5))
                 .foregroundStyle(.secondary)
         }
@@ -292,8 +300,34 @@ private struct AppRowView: View {
         }
     }
 
+    private var explanationLines: [String] {
+        FreezeExplainer.explain(
+            app,
+            context: FreezeExplainer.Context(
+                settings: engine.settings,
+                pressure: engine.memoryStats.pressure,
+                powerSource: engine.memoryStats.powerSource
+            )
+        )
+    }
+
     private var expandedDrawer: some View {
         VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 3) {
+                Label("Почему?", systemImage: "questionmark.circle")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.primary.opacity(0.85))
+                ForEach(Array(explanationLines.enumerated()), id: \.offset) { _, line in
+                    Text(line)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
+
             HStack(spacing: 8) {
                 Text("Процессов: \(app.processCount)")
                 Text("·")

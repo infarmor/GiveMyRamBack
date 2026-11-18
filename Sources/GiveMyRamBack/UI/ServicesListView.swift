@@ -143,7 +143,7 @@ private struct ServiceRowView: View {
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 } else {
-                    Text("PID \(service.mainPID) · \(service.isAutoFreezeEnabled ? "Автопауза включена" : "Только вручную")")
+                    (service.isAutoFreezeEnabled ? Text("PID \(service.mainPID) · Автопауза включена") : Text("PID \(service.mainPID) · Только вручную"))
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }

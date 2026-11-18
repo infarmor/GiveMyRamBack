@@ -42,6 +42,15 @@ mkdir -p "$APP_BUNDLE/Contents/Resources"
 cp "$BIN_PATH" "$APP_BUNDLE/Contents/MacOS/$EXEC_NAME"
 cp "$ROOT_DIR/Info.plist" "$APP_BUNDLE/Contents/Info.plist"
 cp "$ICNS_PATH" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
+
+# Localization: Russian is the source language (keys are Russian), English comes from the
+# String Catalog. An empty ru.lproj tells macOS that Russian is a supported language.
+echo "Compiling Localizable.xcstrings..."
+xcrun xcstringstool compile "$ROOT_DIR/Localization/Localizable.xcstrings" \
+    --output-directory "$APP_BUNDLE/Contents/Resources"
+mkdir -p "$APP_BUNDLE/Contents/Resources/ru.lproj"
+printf '/* Russian is the development language: keys are the Russian strings. */\n' \
+    > "$APP_BUNDLE/Contents/Resources/ru.lproj/Localizable.strings"
 printf 'APPL????' > "$APP_BUNDLE/Contents/PkgInfo"
 
 if command -v codesign >/dev/null 2>&1; then

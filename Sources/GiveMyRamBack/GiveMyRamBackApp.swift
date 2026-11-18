@@ -61,6 +61,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
     private var ownsInstanceLock = false
 
     private let engine = FreezeEngine()
+    private let updateChecker = UpdateChecker()
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
     private var detachedWindow: NSWindow?
@@ -71,6 +72,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
     private var overlayController: FrozenOverlayController?
     private let hotKey = GlobalHotKey()
     private var occlusionObserver: NSObjectProtocol?
+    private var onboardingWindow: NSWindow?
+    private var onboardingObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -101,6 +104,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
 
         overlayController = FrozenOverlayController(engine: engine)
         bindHotKey()
+        updateChecker.start { [weak self] in
+            self?.engine.settings.checkForUpdates ?? false
+        }
+
+        onboardingObserver = NotificationCenter.default.addObserver(
+            forName: OnboardingRequest.notification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.showOnboarding() }
+        }
+        if !engine.settings.hasCompletedOnboarding {
+            showOnboarding()
+        }
+    }
+
+    private func showOnboarding() {
+        popover?.performClose(nil)
+        if let onboardingWindow {
+            NSApp.activate(ignoringOtherApps: true)
+            onboardingWindow.makeKeyAndOrderFront(nil)
+            return
+        }
+        let hosting = NSHostingController(rootView: OnboardingView(engine: engine) { [weak self] in
+            self?.onboardingWindow?.close()
+        })
+        let window = NSWindow(contentViewController: hosting)
+        window.title = String(localized: "Добро пожаловать")
+        window.styleMask = [.titled, .closable, .fullSizeContentView]
+        window.titlebarAppearsTransparent = true
+        window.isReleasedWhenClosed = false
+        window.center()
+        window.delegate = self
+        onboardingWindow = window
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
     }
 
     private func bindHotKey() {
@@ -113,7 +152,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
                 if enabled {
                     self.hotKey.register { [weak self] in
                         MainActor.assumeIsolated {
-                            self?.engine.resumeAll(reason: "горячая клавиша \(GlobalHotKey.displayString)")
+                            self?.engine.resumeAll(reason: String(localized: "горячая клавиша \(GlobalHotKey.displayString)"))
                         }
                     }
                 } else {
@@ -130,10 +169,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
         }
         guard ownsInstanceLock else { return }
         overlayController?.removeAll()
-        engine.stopAndResumeAll(reason: "завершение работы")
+        engine.stopAndResumeAll(reason: String(localized: "завершение работы"))
     }
 
     func windowWillClose(_ notification: Notification) {
+        if let window = notification.object as? NSWindow, window == onboardingWindow {
+            // Closing the window counts as done: never nag on every launch.
+            if !engine.settings.hasCompletedOnboarding {
+                engine.settings.hasCompletedOnboarding = true
+            }
+            onboardingWindow = nil
+            return
+        }
         if (notification.object as? NSWindow) == detachedWindow {
             detachedWindow = nil
             if let occlusionObserver {
@@ -191,6 +238,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
     private func makeRootView(isDetached: Bool) -> PopoverRootView {
         PopoverRootView(
             engine: engine,
+            updates: updateChecker,
             isDetached: isDetached,
             onToggleDetach: { [weak self] in
                 self?.toggleDetachedWindow()
@@ -353,16 +401,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
     private func showContextMenu(anchor: NSStatusBarButton) {
         let menu = NSMenu()
 
-        let openItem = NSMenuItem(title: "Открыть Give my ram back", action: #selector(openFromMenu), keyEquivalent: "")
+        let openItem = NSMenuItem(title: String(localized: "Открыть Give my ram back"), action: #selector(openFromMenu), keyEquivalent: "")
         openItem.target = self
         menu.addItem(openItem)
 
-        let freezeBgItem = NSMenuItem(title: "Вернуть RAM сейчас", action: #selector(freezeAllFromMenu), keyEquivalent: "")
+        if let release = updateChecker.available {
+            let updateItem = NSMenuItem(
+                title: String(localized: "Скачать версию \(release.version)…"),
+                action: #selector(openUpdateFromMenu),
+                keyEquivalent: ""
+            )
+            updateItem.target = self
+            menu.addItem(updateItem)
+        }
+
+        let freezeBgItem = NSMenuItem(title: String(localized: "Вернуть RAM сейчас"), action: #selector(freezeAllFromMenu), keyEquivalent: "")
         freezeBgItem.target = self
         freezeBgItem.isEnabled = engine.hasBatchCandidates
         menu.addItem(freezeBgItem)
 
-        let resumeAllItem = NSMenuItem(title: "Разморозить всё", action: #selector(resumeAllFromMenu), keyEquivalent: "")
+        let resumeAllItem = NSMenuItem(title: String(localized: "Разморозить всё"), action: #selector(resumeAllFromMenu), keyEquivalent: "")
         resumeAllItem.target = self
         if hotKey.isRegistered {
             // Display hint for the global shortcut.
@@ -374,18 +432,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
 
         menu.addItem(.separator())
 
-        let detachTitle = detachedWindow != nil ? "Вернуть в строку меню" : "Закрепить отдельным окном"
+        let detachTitle = detachedWindow != nil ? String(localized: "Вернуть в строку меню") : String(localized: "Закрепить отдельным окном")
         let detachItem = NSMenuItem(title: detachTitle, action: #selector(toggleDetachFromMenu), keyEquivalent: "")
         detachItem.target = self
         menu.addItem(detachItem)
 
         menu.addItem(.separator())
 
-        let quitItem = NSMenuItem(title: "Разморозить всё и выйти", action: #selector(quitFromMenu), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: String(localized: "Разморозить всё и выйти"), action: #selector(quitFromMenu), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
 
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: anchor.bounds.height + 4), in: anchor)
+    }
+
+    @objc private func openUpdateFromMenu() {
+        NSWorkspace.shared.open(updateChecker.available?.url ?? UpdateChecker.releasesPage)
     }
 
     @objc private func openFromMenu() {
@@ -398,7 +460,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
     }
 
     @objc private func resumeAllFromMenu() {
-        engine.resumeAll(reason: "контекстное меню")
+        engine.resumeAll(reason: String(localized: "контекстное меню"))
     }
 
     @objc private func toggleDetachFromMenu() {
@@ -410,7 +472,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
     }
 
     private func quitSafely() {
-        engine.stopAndResumeAll(reason: "выход из приложения")
+        engine.stopAndResumeAll(reason: String(localized: "выход из приложения"))
         NSApp.terminate(nil)
     }
 
