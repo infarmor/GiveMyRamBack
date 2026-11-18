@@ -9,9 +9,15 @@ EXEC_NAME="GiveMyRamBack"
 APP_DISPLAY_NAME="Give my ram back"
 APP_BUNDLE="$ROOT_DIR/$APP_DISPLAY_NAME.app"
 
-echo "Building $APP_DISPLAY_NAME ($CONFIG)..."
-swift build -c "$CONFIG"
-BIN_DIR="$(swift build -c "$CONFIG" --show-bin-path)"
+# UNIVERSAL=1 builds a fat binary for Apple silicon and Intel (used for releases).
+ARCH_FLAGS=()
+if [[ "${UNIVERSAL:-0}" == "1" ]]; then
+    ARCH_FLAGS=(--arch arm64 --arch x86_64)
+fi
+
+echo "Building $APP_DISPLAY_NAME ($CONFIG${UNIVERSAL:+, universal})..."
+swift build -c "$CONFIG" ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"}
+BIN_DIR="$(swift build -c "$CONFIG" ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"} --show-bin-path)"
 BIN_PATH="$BIN_DIR/$EXEC_NAME"
 
 if [[ ! -x "$BIN_PATH" ]]; then

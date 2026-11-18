@@ -31,9 +31,17 @@ A browser with fifty tabs, Slack, Discord and a couple of Electron apps you have
 - **Crash-safe**: freeze records are written before the first `SIGSTOP`, a fatal-signal handler resumes everything, and a watchdog process unfreezes all apps even if the utility is `kill -9`'d.
 - **Light**: samples every 5 s while the UI is closed, about 0.5% of one core.
 
+## Download
+
+Grab `GiveMyRamBack-…-universal.zip` from the [latest release](https://github.com/infarmor/GiveMyRamBack/releases/latest) (Apple silicon + Intel, macOS 14+), unzip, and move the app to `/Applications`. The app is ad-hoc signed and not notarized, so clear the quarantine flag once:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Give my ram back.app"
+```
+
 ## Build
 
-Requires macOS 14+ and Xcode 16 / Swift 6.
+Requires macOS 14+ and Xcode 16 / Swift 6. Use `UNIVERSAL=1` for a fat binary.
 
 ```bash
 git clone https://github.com/infarmor/GiveMyRamBack.git
