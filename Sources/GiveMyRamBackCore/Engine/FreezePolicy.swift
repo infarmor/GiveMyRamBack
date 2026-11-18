@@ -8,6 +8,10 @@ public struct FreezeEvaluationContext: Sendable {
     public let sleepAssertionPIDs: Set<Int32>
     public let now: Date
     public let wakeCooldownUntil: Date?
+    /// PIDs that own a meaningfully visible (not fully covered) normal window on any display.
+    public let visibleWindowPIDs: Set<Int32>
+    /// App key of the app that most recently wrote to the general pasteboard.
+    public let clipboardOwnerKey: String?
 
     public init(
         settings: EngineSettings,
@@ -16,8 +20,12 @@ public struct FreezeEvaluationContext: Sendable {
         audioSnapshot: AudioActivitySnapshot,
         sleepAssertionPIDs: Set<Int32>,
         now: Date,
-        wakeCooldownUntil: Date?
+        wakeCooldownUntil: Date?,
+        visibleWindowPIDs: Set<Int32> = [],
+        clipboardOwnerKey: String? = nil
     ) {
+        self.visibleWindowPIDs = visibleWindowPIDs
+        self.clipboardOwnerKey = clipboardOwnerKey
         self.settings = settings
         self.memoryPressure = memoryPressure
         self.powerSource = powerSource
@@ -38,6 +46,63 @@ public enum FreezePolicy {
     public static let launchGraceSeconds: TimeInterval = 45
     public static let resumeCooldownSeconds: TimeInterval = 30
     public static let systemWakeGraceSeconds: TimeInterval = 20
+    /// In «only under memory pressure» mode, background apps averaging at least this much CPU
+    /// are still frozen under normal pressure: there freezing saves battery, not RAM.
+    public static let cpuHogThresholdPercent: Double = 5
+
+    /// Whether the pressure-only mode currently holds back an idle-timeout freeze.
+    static func isHeldUntilPressure(
+        settings: EngineSettings,
+        pressure: MemoryPressureLevel,
+        rule: AppFreezeRule,
+        backgroundCPUPercent: Double
+    ) -> Bool {
+        settings.freezeOnlyUnderPressure &&
+            pressure == .normal &&
+            rule != .fast &&
+            backgroundCPUPercent < cpuHogThresholdPercent
+    }
+
+    /// Protection that applies to a standalone background service.
+    public static func serviceProtection(pids: [Int32], context: FreezeEvaluationContext) -> ProtectionReason? {
+        let pidSet = Set(pids)
+        let settings = context.settings
+        let audio = context.audioSnapshot
+        if settings.protectAudioApps && !pidSet.isDisjoint(with: audio.inputPIDs) {
+            return .usingMicrophone
+        }
+        if settings.protectAudioApps && !pidSet.isDisjoint(with: audio.outputPIDs) {
+            return .playingAudio
+        }
+        if settings.protectSleepAssertions && !pidSet.isDisjoint(with: context.sleepAssertionPIDs) {
+            return .preventingSleep
+        }
+        return nil
+    }
+
+    /// Auto-freeze decision for a service the user opted in (protection already checked).
+    public static func shouldAutoFreezeService(
+        idleSeconds: TimeInterval,
+        resumeCooldownUntil: Date?,
+        backgroundCPUPercent: Double,
+        context: FreezeEvaluationContext
+    ) -> Bool {
+        guard context.settings.isAutoFreezeEnabled else { return false }
+        if let wake = context.wakeCooldownUntil, context.now < wake { return false }
+        if let cooldown = resumeCooldownUntil, context.now < cooldown { return false }
+        let timeout = effectiveIdleTimeoutSeconds(
+            settings: context.settings,
+            pressure: context.memoryPressure,
+            powerSource: context.powerSource
+        )
+        guard idleSeconds >= timeout else { return false }
+        return !isHeldUntilPressure(
+            settings: context.settings,
+            pressure: context.memoryPressure,
+            rule: .automatic,
+            backgroundCPUPercent: backgroundCPUPercent
+        )
+    }
 
     public static func effectiveIdleTimeoutSeconds(
         settings: EngineSettings,
@@ -73,7 +138,8 @@ public enum FreezePolicy {
         idleSeconds: TimeInterval,
         frozenRecord: FrozenRecord?,
         resumeCooldownUntil: Date?,
-        context: FreezeEvaluationContext
+        context: FreezeEvaluationContext,
+        backgroundCPUPercent: Double = 0
     ) -> AppEvaluationOutcome {
         if let frozenRecord {
             return AppEvaluationOutcome(
@@ -128,6 +194,14 @@ public enum FreezePolicy {
             reasons.append(.userWhitelist)
         }
 
+        if context.settings.keepVisibleWindowsAwake && !pidSet.isDisjoint(with: context.visibleWindowPIDs) {
+            reasons.append(.visibleOnScreen)
+        }
+
+        if context.settings.protectClipboardOwner, let owner = context.clipboardOwnerKey, owner == descriptor.key {
+            reasons.append(.clipboardOwner)
+        }
+
         if let wakeCooldownUntil = context.wakeCooldownUntil, context.now < wakeCooldownUntil {
             reasons.append(.cooldownAfterWake)
         } else if let resumeCooldownUntil, context.now < resumeCooldownUntil {
@@ -147,6 +221,17 @@ public enum FreezePolicy {
             )
         }
 
+        // The memory threshold applies before any "manual only" outcome, otherwise batch freeze
+        // ("Вернуть RAM сейчас") would pause tiny apps whenever auto-freeze is off.
+        let minBytes = UInt64(max(0, context.settings.minMemoryThresholdMB) * 1_048_576.0)
+        if rule != .fast && footprintBytes < minBytes {
+            return AppEvaluationOutcome(
+                status: .belowThreshold,
+                shouldAutoFreeze: false,
+                protectionReasons: []
+            )
+        }
+
         if !descriptor.isRegularApp {
             return AppEvaluationOutcome(
                 status: .manualOnly,
@@ -163,15 +248,6 @@ public enum FreezePolicy {
             )
         }
 
-        let minBytes = UInt64(max(0, context.settings.minMemoryThresholdMB) * 1_048_576.0)
-        if rule != .fast && footprintBytes < minBytes {
-            return AppEvaluationOutcome(
-                status: .belowThreshold,
-                shouldAutoFreeze: false,
-                protectionReasons: []
-            )
-        }
-
         let timeout = effectiveIdleTimeoutSeconds(
             settings: context.settings,
             pressure: context.memoryPressure,
@@ -180,6 +256,18 @@ public enum FreezePolicy {
         )
         let remaining = timeout - idleSeconds
         if remaining <= 0 {
+            if isHeldUntilPressure(
+                settings: context.settings,
+                pressure: context.memoryPressure,
+                rule: rule,
+                backgroundCPUPercent: backgroundCPUPercent
+            ) {
+                return AppEvaluationOutcome(
+                    status: .waitingForPressure,
+                    shouldAutoFreeze: false,
+                    protectionReasons: []
+                )
+            }
             return AppEvaluationOutcome(
                 status: .countingDown(remainingSeconds: 0, totalSeconds: timeout),
                 shouldAutoFreeze: true,

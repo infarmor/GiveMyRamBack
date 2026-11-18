@@ -44,6 +44,8 @@ public final class ProcessController: @unchecked Sendable {
     private let legacyStateFileURL: URL?
     private var recordsByKey: [String: FrozenRecord] = [:]
     private var keyByPID: [Int32: String] = [:]
+    /// Only the live controller feeds the in-process crash handler (tests use mock signalers).
+    private var publishesCrashPIDs: Bool { signaler is LiveProcessSignaler }
 
     public init(
         signaler: ProcessSignaling = LiveProcessSignaler(),
@@ -118,6 +120,7 @@ public final class ProcessController: @unchecked Sendable {
                 }
                 if resumedAny {
                     recoveredNames.append(record.appName)
+                    Log.guardian.notice("Recovered «\(record.appName, privacy: .public)» left frozen by a previous run")
                 }
             }
 
@@ -142,16 +145,49 @@ public final class ProcessController: @unchecked Sendable {
 
         // Ensure helpers/children freeze before mainPID
         let ordered = orderMainLast(identities, mainPID: mainPID)
+
+        // Write-ahead: persist the intended record (and expose its PIDs to the crash handler)
+        // *before* the first SIGSTOP, so being killed mid-freeze still leaves a recoverable trace.
+        // Recovery only sends SIGCONT to identities that are actually stopped, so listing
+        // not-yet-stopped ones is harmless.
+        let intent = FrozenRecord(
+            appKey: appKey,
+            appName: appName,
+            mainPID: mainPID,
+            identities: ordered,
+            frozenAt: now,
+            footprintAtFreezeBytes: footprintBytes,
+            residentAtFreezeBytes: residentBytes
+        )
+        lock.lock()
+        let previous = recordsByKey[appKey]
+        recordsByKey[appKey] = intent
+        let intentSnapshot = Array(recordsByKey.values)
+        lock.unlock()
+        persistLockedRecords(intentSnapshot)
+
         var frozenIdentities: [ProcessIdentity] = []
         frozenIdentities.reserveCapacity(ordered.count)
-
         for identity in ordered {
             if signaler.sendStop(to: identity) {
                 frozenIdentities.append(identity)
+            } else {
+                Log.process.info("SIGSTOP skipped for pid \(identity.pid, privacy: .public) (\(identity.name, privacy: .public)): gone or identity mismatch")
             }
         }
 
-        guard !frozenIdentities.isEmpty else { return nil }
+        guard !frozenIdentities.isEmpty else {
+            lock.lock()
+            if let previous {
+                recordsByKey[appKey] = previous
+            } else {
+                recordsByKey.removeValue(forKey: appKey)
+            }
+            let rollback = Array(recordsByKey.values)
+            lock.unlock()
+            persistLockedRecords(rollback)
+            return nil
+        }
 
         let record = FrozenRecord(
             appKey: appKey,
@@ -240,6 +276,9 @@ public final class ProcessController: @unchecked Sendable {
     }
 
     private func persistLockedRecords(_ records: [FrozenRecord]) {
+        if publishesCrashPIDs {
+            CrashGuard.publishFrozenPIDs(records.flatMap { $0.identities.map(\.pid) })
+        }
         let dir = stateFileURL.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         if records.isEmpty {

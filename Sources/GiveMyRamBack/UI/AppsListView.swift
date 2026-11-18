@@ -401,6 +401,11 @@ private struct AppRowView: View {
             Text("Ручной режим")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
+
+        case .waitingForPressure:
+            Text("Ждёт нехватки памяти")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
         }
     }
 }

@@ -1,3 +1,4 @@
+import Combine
 import GiveMyRamBackCore
 import ServiceManagement
 import SwiftUI
@@ -9,6 +10,8 @@ struct SettingsView: View {
 
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var launchAtLoginError: String?
+    @State private var isAccessibilityTrusted = WindowInspector.isAccessibilityTrusted
+    private let trustPoll = Timer.publish(every: 1.5, on: .main, in: .common).autoconnect()
 
     private var customRuleEntries: [(bundleID: String, name: String, rule: AppFreezeRule)] {
         engine.settings.appRules
@@ -101,6 +104,15 @@ struct SettingsView: View {
                         }
                     }
 
+                    Toggle(isOn: $engine.settings.freezeOnlyUnderPressure) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Только при нехватке памяти")
+                            Text("Пока памяти хватает, пауза почти ничего не освобождает, а уведомления пропадают. В этом режиме неактивные программы ждут жёлтой зоны; сразу на паузу встают только те, что нагружают процессор в фоне (≥ \(Int(FreezePolicy.cpuHogThresholdPercent))%)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
                     Toggle(isOn: $engine.settings.batterySaverMode) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Экономия от батареи")
@@ -115,6 +127,64 @@ struct SettingsView: View {
                     Toggle("Не трогать звук и микрофон", isOn: $engine.settings.protectAudioApps)
                     Toggle("Не трогать видео, звонки и загрузки", isOn: $engine.settings.protectSleepAssertions)
                     Toggle("Защищать терминалы, IDE и системные утилиты", isOn: $engine.settings.protectDevAndSystemTools)
+
+                    Toggle(isOn: $engine.settings.keepVisibleWindowsAwake) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Не трогать видимые окна")
+                            Text("Отсчёт начинается, только когда окно скрыто, свёрнуто или перекрыто")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Toggle(isOn: $engine.settings.protectClipboardOwner) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Защищать источник буфера обмена")
+                            Text("Программа, из которой вы последний раз копировали, не встанет на паузу — иначе вставка может зависнуть")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
+                Section("Пробуждение") {
+                    Toggle(isOn: $engine.settings.showFrozenOverlay) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Отмечать окна на паузе")
+                            Text("Затемняет окно и показывает «На паузе», чтобы его не путали с зависшим")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Toggle(isOn: $engine.settings.unfreezeHotkeyEnabled) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Разморозить всё: ⌃⌥⌘U")
+                            Text("Работает из любой программы, без дополнительных разрешений")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    HStack(alignment: .top, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Клик по иконке в Dock")
+                            Text(isAccessibilityTrusted
+                                 ? "Включено: клик по иконке замороженной программы сразу её размораживает"
+                                 : "Нужен доступ «Универсальный доступ», иначе программу на паузе разбудит только клик по её окну или переключение на неё")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if isAccessibilityTrusted {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Button("Разрешить") {
+                                WindowInspector.requestAccessibilityTrust()
+                            }
+                        }
+                    }
                 }
 
                 if !customRuleEntries.isEmpty {
@@ -182,6 +252,13 @@ struct SettingsView: View {
         }
         .onAppear {
             launchAtLogin = (SMAppService.mainApp.status == .enabled)
+            isAccessibilityTrusted = WindowInspector.isAccessibilityTrusted
+        }
+        .onReceive(trustPoll) { _ in
+            // The user grants access in System Settings; reflect it without reopening the view.
+            if !isAccessibilityTrusted {
+                isAccessibilityTrusted = WindowInspector.isAccessibilityTrusted
+            }
         }
     }
 

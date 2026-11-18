@@ -8,6 +8,9 @@ import SwiftUI
 @MainActor
 final class GiveMyRamBackMain {
     static func main() {
+        // `--watchdog <pid>` mode: no UI, just wait for the app to exit and unfreeze leftovers.
+        CrashGuard.runWatchdogIfRequested()
+
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate
@@ -29,7 +32,8 @@ private final class SingleInstanceLock {
         let lockURL = dir.appendingPathComponent("app.lock")
         let descriptor = Darwin.open(
             lockURL.path,
-            O_CREAT | O_RDWR | O_EXLOCK | O_NONBLOCK,
+            // O_CLOEXEC: the watchdog child must not inherit (and keep holding) the lock.
+            O_CREAT | O_RDWR | O_EXLOCK | O_NONBLOCK | O_CLOEXEC,
             0o644
         )
         if descriptor >= 0 {
@@ -50,7 +54,7 @@ private final class SingleInstanceLock {
 }
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPopoverDelegate {
     private static let openUINotificationName = Notification.Name("dev.givemyramback.openUI")
 
     private let instanceLock = SingleInstanceLock()
@@ -63,6 +67,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var cancellables: Set<AnyCancellable> = []
     private var signalSources: [DispatchSourceSignal] = []
     private var distributedObserver: NSObjectProtocol?
+    private var watchdogProcess: Process?
+    private var overlayController: FrozenOverlayController?
+    private let hotKey = GlobalHotKey()
+    private var occlusionObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -80,6 +88,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         ownsInstanceLock = true
 
+        CrashGuard.installCrashHandlers()
+        watchdogProcess = CrashGuard.spawnWatchdog()
+
         setupStatusItem()
         setupPopover()
         bindStatusBarUpdates()
@@ -87,6 +98,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         installOpenUIObserver()
 
         engine.start()
+
+        overlayController = FrozenOverlayController(engine: engine)
+        bindHotKey()
+    }
+
+    private func bindHotKey() {
+        engine.$settings
+            .map(\.unfreezeHotkeyEnabled)
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] enabled in
+                guard let self else { return }
+                if enabled {
+                    self.hotKey.register { [weak self] in
+                        MainActor.assumeIsolated {
+                            self?.engine.resumeAll(reason: "горячая клавиша \(GlobalHotKey.displayString)")
+                        }
+                    }
+                } else {
+                    self.hotKey.unregister()
+                }
+            }
+            .store(in: &cancellables)
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -95,13 +129,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             self.distributedObserver = nil
         }
         guard ownsInstanceLock else { return }
+        overlayController?.removeAll()
         engine.stopAndResumeAll(reason: "завершение работы")
     }
 
     func windowWillClose(_ notification: Notification) {
         if (notification.object as? NSWindow) == detachedWindow {
             detachedWindow = nil
+            if let occlusionObserver {
+                NotificationCenter.default.removeObserver(occlusionObserver)
+                self.occlusionObserver = nil
+            }
+            updateUIVisibility()
         }
+    }
+
+    func popoverDidShow(_ notification: Notification) {
+        updateUIVisibility()
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        updateUIVisibility()
+    }
+
+    /// Fast sampling and SwiftUI updates only while some UI is actually on screen.
+    private func updateUIVisibility() {
+        let popoverShown = popover?.isShown ?? false
+        let windowShown = detachedWindow.map {
+            $0.isVisible && !$0.isMiniaturized && $0.occlusionState.contains(.visible)
+        } ?? false
+        engine.setUIVisible(popoverShown || windowShown)
     }
 
     private func setupStatusItem() {
@@ -127,6 +184,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         pop.animates = true
         pop.contentSize = NSSize(width: 460, height: 620)
         pop.contentViewController = hostingController
+        pop.delegate = self
         popover = pop
     }
 
@@ -148,53 +206,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             engine.$frozenCount,
             engine.$totalFrozenFootprintBytes,
             engine.$totalReclaimedDRAMBytes,
-            Publishers.CombineLatest(engine.$memoryStats, engine.$settings)
+            engine.$settings.map(\.menuBarDisplayMode)
         )
-        .receive(on: RunLoop.main)
-        .sink { [weak self] frozenCount, frozenFootprint, reclaimedDRAM, statsAndSettings in
-            let (stats, settings) = statsAndSettings
-            self?.updateStatusItemAppearance(
+        .map { frozenCount, frozenFootprint, reclaimedDRAM, mode in
+            Self.statusItemTitle(
                 frozenCount: frozenCount,
                 frozenFootprintBytes: frozenFootprint,
                 reclaimedDRAMBytes: reclaimedDRAM,
-                pressure: stats.pressure,
-                mode: settings.menuBarDisplayMode
+                mode: mode
             )
+        }
+        // Only touch the status item when what it shows actually changes.
+        .removeDuplicates { $0 == $1 }
+        .receive(on: RunLoop.main)
+        .sink { [weak self] appearance in
+            self?.applyStatusItemAppearance(symbolName: appearance.symbol, title: appearance.title)
         }
         .store(in: &cancellables)
     }
 
-    private func updateStatusItemAppearance(
+    private nonisolated static func statusItemTitle(
         frozenCount: Int,
         frozenFootprintBytes: UInt64,
         reclaimedDRAMBytes: UInt64,
-        pressure: MemoryPressureLevel,
         mode: MenuBarDisplayMode
-    ) {
+    ) -> (symbol: String, title: String) {
+        let symbol = frozenCount > 0 ? "snowflake.circle.fill" : "memorychip"
+        switch mode {
+        case .iconOnly:
+            return (symbol, "")
+        case .frozenCount:
+            return (symbol, frozenCount > 0 ? " \(frozenCount)" : "")
+        case .frozenAndRAM:
+            guard frozenCount > 0 else { return (symbol, "") }
+            let ramBytes = reclaimedDRAMBytes >= 20 * 1_048_576 ? reclaimedDRAMBytes : frozenFootprintBytes
+            return (symbol, " \(frozenCount) · \(ByteFormatter.formatCompact(ramBytes))")
+        }
+    }
+
+    private func applyStatusItemAppearance(symbolName: String, title: String) {
         guard let button = statusItem?.button else { return }
-
-        let symbolName = frozenCount > 0 ? "snowflake.circle.fill" : "memorychip"
         let config = NSImage.SymbolConfiguration(hierarchicalColor: .labelColor)
-
         if let baseImage = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Give my ram back") {
             let configured = baseImage.withSymbolConfiguration(config) ?? baseImage
             configured.isTemplate = true
             button.image = configured
         }
-
-        switch mode {
-        case .iconOnly:
-            button.title = ""
-        case .frozenCount:
-            button.title = frozenCount > 0 ? " \(frozenCount)" : ""
-        case .frozenAndRAM:
-            if frozenCount > 0 {
-                let ramBytes = reclaimedDRAMBytes >= 20 * 1_048_576 ? reclaimedDRAMBytes : frozenFootprintBytes
-                button.title = " \(frozenCount) · \(ByteFormatter.formatCompact(ramBytes))"
-            } else {
-                button.title = ""
-            }
-        }
+        button.title = title
     }
 
     private func installOpenUIObserver() {
@@ -278,8 +336,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.delegate = self
 
         detachedWindow = window
+        occlusionObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didChangeOcclusionStateNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.updateUIVisibility()
+            }
+        }
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
+        updateUIVisibility()
     }
 
     private func showContextMenu(anchor: NSStatusBarButton) {
@@ -291,11 +359,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         let freezeBgItem = NSMenuItem(title: "Вернуть RAM сейчас", action: #selector(freezeAllFromMenu), keyEquivalent: "")
         freezeBgItem.target = self
-        freezeBgItem.isEnabled = engine.apps.contains { $0.isEligibleForBatchFreezeNow }
+        freezeBgItem.isEnabled = engine.hasBatchCandidates
         menu.addItem(freezeBgItem)
 
         let resumeAllItem = NSMenuItem(title: "Разморозить всё", action: #selector(resumeAllFromMenu), keyEquivalent: "")
         resumeAllItem.target = self
+        if hotKey.isRegistered {
+            // Display hint for the global shortcut.
+            resumeAllItem.keyEquivalent = "u"
+            resumeAllItem.keyEquivalentModifierMask = [.control, .option, .command]
+        }
         resumeAllItem.isEnabled = engine.frozenCount > 0
         menu.addItem(resumeAllItem)
 

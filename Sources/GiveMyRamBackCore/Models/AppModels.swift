@@ -236,6 +236,8 @@ public enum ProtectionReason: String, Hashable, Sendable, Codable {
     case userWhitelist
     case cooldownAfterWake
     case recentlyLaunched
+    case visibleOnScreen
+    case clipboardOwner
 
     public var shortLabel: String {
         switch self {
@@ -247,6 +249,8 @@ public enum ProtectionReason: String, Hashable, Sendable, Codable {
         case .userWhitelist: return "Белый список"
         case .cooldownAfterWake: return "Пауза после пробуждения"
         case .recentlyLaunched: return "Недавно запущено"
+        case .visibleOnScreen: return "Окно на экране"
+        case .clipboardOwner: return "Буфер обмена"
         }
     }
 }
@@ -258,6 +262,8 @@ public enum TrackedAppStatus: Equatable, Sendable {
     case countingDown(remainingSeconds: TimeInterval, totalSeconds: TimeInterval)
     case belowThreshold
     case manualOnly
+    /// Idle long enough, but «only under memory pressure» mode waits for RAM to run low.
+    case waitingForPressure
 }
 
 public struct TrackedApp: Identifiable, Sendable, Equatable {
@@ -276,6 +282,9 @@ public struct TrackedApp: Identifiable, Sendable, Equatable {
     public let status: TrackedAppStatus
     public let rule: AppFreezeRule
     public let idleSeconds: TimeInterval
+    /// `false` for menu-bar agents / accessory apps (no Dock icon). They never become frontmost,
+    /// so nothing would wake them after a batch freeze.
+    public let isRegularApp: Bool
 
     public var processCount: Int { pids.count }
     public var isWhitelisted: Bool { rule == .protected }
@@ -285,8 +294,12 @@ public struct TrackedApp: Identifiable, Sendable, Equatable {
     public var isEligibleForBatchFreezeNow: Bool {
         guard !isFrozen else { return false }
         switch status {
-        case .countingDown, .manualOnly:
+        case .countingDown, .waitingForPressure:
             return true
+        case .manualOnly:
+            // Accessory/menu-bar agents (Rectangle, AltTab, clipboard managers…) only when the user
+            // explicitly opted them in with the «Быстро» rule.
+            return isRegularApp || rule == .fast
         case .belowThreshold:
             return rule == .fast
         case .active, .frozen, .protected:
@@ -309,8 +322,10 @@ public struct TrackedApp: Identifiable, Sendable, Equatable {
         isFrozen: Bool,
         status: TrackedAppStatus,
         rule: AppFreezeRule = .automatic,
-        idleSeconds: TimeInterval
+        idleSeconds: TimeInterval,
+        isRegularApp: Bool = true
     ) {
+        self.isRegularApp = isRegularApp
         self.id = id
         self.bundleIdentifier = bundleIdentifier
         self.name = name
@@ -448,6 +463,55 @@ public struct EngineSettings: Codable, Equatable, Sendable {
     public var appRules: [String: AppFreezeRule]
     public var appRuleDisplayNames: [String: String]
     public var autoFreezeServiceKeys: Set<String>
+    /// Do not count idle time for apps whose window is actually visible on screen
+    /// (e.g. a dashboard on a second monitor).
+    public var keepVisibleWindowsAwake: Bool
+    /// Do not freeze the app that last wrote to the pasteboard: apps may provide clipboard data
+    /// lazily, and pasting from a stopped owner hangs the pasting app.
+    public var protectClipboardOwner: Bool
+    /// Freeze idle apps only when macOS reports memory pressure (or when they burn CPU in the
+    /// background). Under normal pressure freezing frees almost no RAM but silences notifications.
+    public var freezeOnlyUnderPressure: Bool
+    /// ⌃⌥⌘U resumes everything from anywhere.
+    public var unfreezeHotkeyEnabled: Bool
+    /// Dim frozen windows and label them «На паузе».
+    public var showFrozenOverlay: Bool
+    /// The user has read the warning about pausing background services.
+    public var acknowledgedServiceRisk: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case isAutoFreezeEnabled, idleTimeoutMinutes, fastModeMinutes, minMemoryThresholdMB
+        case aggressivePressureMode, batterySaverMode, protectAudioApps, protectSleepAssertions
+        case protectDevAndSystemTools, menuBarDisplayMode, appRules, appRuleDisplayNames
+        case autoFreezeServiceKeys, keepVisibleWindowsAwake, protectClipboardOwner
+        case freezeOnlyUnderPressure, unfreezeHotkeyEnabled, showFrozenOverlay, acknowledgedServiceRisk
+    }
+
+    /// Tolerant decoding: missing keys (settings saved by an older build) fall back to defaults
+    /// instead of failing the whole decode and silently wiping the user's rules.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = EngineSettings()
+        isAutoFreezeEnabled = try c.decodeIfPresent(Bool.self, forKey: .isAutoFreezeEnabled) ?? d.isAutoFreezeEnabled
+        idleTimeoutMinutes = try c.decodeIfPresent(Double.self, forKey: .idleTimeoutMinutes) ?? d.idleTimeoutMinutes
+        fastModeMinutes = try c.decodeIfPresent(Double.self, forKey: .fastModeMinutes) ?? d.fastModeMinutes
+        minMemoryThresholdMB = try c.decodeIfPresent(Double.self, forKey: .minMemoryThresholdMB) ?? d.minMemoryThresholdMB
+        aggressivePressureMode = try c.decodeIfPresent(Bool.self, forKey: .aggressivePressureMode) ?? d.aggressivePressureMode
+        batterySaverMode = try c.decodeIfPresent(Bool.self, forKey: .batterySaverMode) ?? d.batterySaverMode
+        protectAudioApps = try c.decodeIfPresent(Bool.self, forKey: .protectAudioApps) ?? d.protectAudioApps
+        protectSleepAssertions = try c.decodeIfPresent(Bool.self, forKey: .protectSleepAssertions) ?? d.protectSleepAssertions
+        protectDevAndSystemTools = try c.decodeIfPresent(Bool.self, forKey: .protectDevAndSystemTools) ?? d.protectDevAndSystemTools
+        menuBarDisplayMode = (try? c.decodeIfPresent(MenuBarDisplayMode.self, forKey: .menuBarDisplayMode)) ?? d.menuBarDisplayMode
+        appRules = (try? c.decodeIfPresent([String: AppFreezeRule].self, forKey: .appRules)) ?? d.appRules
+        appRuleDisplayNames = try c.decodeIfPresent([String: String].self, forKey: .appRuleDisplayNames) ?? d.appRuleDisplayNames
+        autoFreezeServiceKeys = try c.decodeIfPresent(Set<String>.self, forKey: .autoFreezeServiceKeys) ?? d.autoFreezeServiceKeys
+        keepVisibleWindowsAwake = try c.decodeIfPresent(Bool.self, forKey: .keepVisibleWindowsAwake) ?? d.keepVisibleWindowsAwake
+        protectClipboardOwner = try c.decodeIfPresent(Bool.self, forKey: .protectClipboardOwner) ?? d.protectClipboardOwner
+        freezeOnlyUnderPressure = try c.decodeIfPresent(Bool.self, forKey: .freezeOnlyUnderPressure) ?? d.freezeOnlyUnderPressure
+        unfreezeHotkeyEnabled = try c.decodeIfPresent(Bool.self, forKey: .unfreezeHotkeyEnabled) ?? d.unfreezeHotkeyEnabled
+        showFrozenOverlay = try c.decodeIfPresent(Bool.self, forKey: .showFrozenOverlay) ?? d.showFrozenOverlay
+        acknowledgedServiceRisk = try c.decodeIfPresent(Bool.self, forKey: .acknowledgedServiceRisk) ?? d.acknowledgedServiceRisk
+    }
 
     public init(
         isAutoFreezeEnabled: Bool = true,
@@ -462,8 +526,20 @@ public struct EngineSettings: Codable, Equatable, Sendable {
         menuBarDisplayMode: MenuBarDisplayMode = .frozenAndRAM,
         appRules: [String: AppFreezeRule] = [:],
         appRuleDisplayNames: [String: String] = [:],
-        autoFreezeServiceKeys: Set<String> = []
+        autoFreezeServiceKeys: Set<String> = [],
+        keepVisibleWindowsAwake: Bool = true,
+        protectClipboardOwner: Bool = true,
+        freezeOnlyUnderPressure: Bool = false,
+        unfreezeHotkeyEnabled: Bool = true,
+        showFrozenOverlay: Bool = true,
+        acknowledgedServiceRisk: Bool = false
     ) {
+        self.freezeOnlyUnderPressure = freezeOnlyUnderPressure
+        self.unfreezeHotkeyEnabled = unfreezeHotkeyEnabled
+        self.showFrozenOverlay = showFrozenOverlay
+        self.acknowledgedServiceRisk = acknowledgedServiceRisk
+        self.keepVisibleWindowsAwake = keepVisibleWindowsAwake
+        self.protectClipboardOwner = protectClipboardOwner
         self.isAutoFreezeEnabled = isAutoFreezeEnabled
         self.idleTimeoutMinutes = idleTimeoutMinutes
         self.fastModeMinutes = fastModeMinutes

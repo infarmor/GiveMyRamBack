@@ -32,6 +32,9 @@ public final class ProcessScanner: @unchecked Sendable {
 
     private var previousCPUTicks: [Int32: (startSec: UInt64, startUsec: UInt64, ticks: UInt64)] = [:]
     private var previousSampleDate: Date?
+    /// Executable paths keyed by PID and validated by process start time: a path never changes
+    /// for the lifetime of a process, so it is read once instead of every sampling tick.
+    private var pathCache: [Int32: (startSec: UInt64, startUsec: UInt64, path: String)] = [:]
 
     public init() {
         var info = mach_timebase_info_data_t()
@@ -52,6 +55,7 @@ public final class ProcessScanner: @unchecked Sendable {
 
         var cpuByPID: [Int32: Double] = [:]
         var nextCPUTicks: [Int32: (startSec: UInt64, startUsec: UInt64, ticks: UInt64)] = [:]
+        var nextPathCache: [Int32: (startSec: UInt64, startUsec: UInt64, path: String)] = [:]
 
         for pid in allPIDs where pid > 0 {
             guard let bsd = Self.readBSDInfo(pid: pid) else { continue }
@@ -67,7 +71,16 @@ public final class ProcessScanner: @unchecked Sendable {
             let footprint = rusageOK ? rusage.ri_phys_footprint : 0
             let resident = rusageOK ? rusage.ri_resident_size : 0
             let cpuTicks = rusageOK ? (rusage.ri_user_time &+ rusage.ri_system_time) : 0
-            let path = readProcessPath(pid: pid)
+            let path: String
+            if let cached = pathCache[pid],
+               cached.startSec == bsd.pbi_start_tvsec,
+               cached.startUsec == bsd.pbi_start_tvusec,
+               !cached.path.isEmpty {
+                path = cached.path
+            } else {
+                path = readProcessPath(pid: pid)
+            }
+            nextPathCache[pid] = (bsd.pbi_start_tvsec, bsd.pbi_start_tvusec, path)
             let rawName = extractProcessName(bsd: bsd, path: path)
             let isStopped = (bsd.pbi_status == UInt32(SSTOP))
 
@@ -103,6 +116,7 @@ public final class ProcessScanner: @unchecked Sendable {
         }
 
         previousCPUTicks = nextCPUTicks
+        pathCache = nextPathCache
         previousSampleDate = now
 
         return ProcessScanResult(

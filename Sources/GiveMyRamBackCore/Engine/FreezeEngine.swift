@@ -1,6 +1,58 @@
 import AppKit
+import Combine
 import CoreGraphics
 import Foundation
+
+/// Lets the sampling loop sleep for an interval but wake up early on demand
+/// (e.g. when the popover opens), without racing two scans against each other.
+final class SampleWaker: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Void, Never>?
+    private var pending = false
+    private var generation: UInt64 = 0
+
+    func wait(seconds: Double) async {
+        await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+            lock.lock()
+            if pending {
+                pending = false
+                lock.unlock()
+                c.resume()
+                return
+            }
+            generation &+= 1
+            let gen = generation
+            continuation = c
+            lock.unlock()
+            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + seconds) { [weak self] in
+                self?.resume(ifGeneration: gen)
+            }
+        }
+    }
+
+    func wake() {
+        lock.lock()
+        if let c = continuation {
+            continuation = nil
+            lock.unlock()
+            c.resume()
+        } else {
+            pending = true
+            lock.unlock()
+        }
+    }
+
+    private func resume(ifGeneration gen: UInt64) {
+        lock.lock()
+        guard gen == generation, let c = continuation else {
+            lock.unlock()
+            return
+        }
+        continuation = nil
+        lock.unlock()
+        c.resume()
+    }
+}
 
 @MainActor
 public final class FreezeEngine: ObservableObject {
@@ -17,6 +69,7 @@ public final class FreezeEngine: ObservableObject {
         didSet {
             guard settings != oldValue else { return }
             saveSettings(settings)
+            Log.engine.info("Settings changed")
             if let lastRawSnapshot {
                 applySnapshot(lastRawSnapshot, advanceIdleClock: false)
             }
@@ -29,8 +82,32 @@ public final class FreezeEngine: ObservableObject {
         let scan: ProcessScanResult
         let audio: AudioActivitySnapshot
         let sleepAssertionPIDs: Set<Int32>
+        let visibleWindowPIDs: Set<Int32>
         let runningApps: [RunningAppDescriptor]
     }
+
+    /// Fresh state used by all engine logic. The `@Published` mirrors above are only refreshed
+    /// while the UI is on screen, so a closed popover doesn't re-render SwiftUI every tick.
+    public private(set) var currentApps: [TrackedApp] = []
+    public private(set) var currentServices: [TrackedService] = []
+    private var historyStorage: [MemoryHistoryPoint] = []
+    private var memoryStatsStorage = SystemMemoryStats()
+    public private(set) var isUIVisible = false
+    /// Fires after every evaluation and after manual freeze/resume (drives window overlays).
+    public let stateDidChange = PassthroughSubject<Void, Never>()
+
+    public var hasBatchCandidates: Bool {
+        currentApps.contains { $0.isEligibleForBatchFreezeNow }
+    }
+
+    private static let visibleSamplingInterval: Double = 2
+    private static let hiddenSamplingInterval: Double = 5
+    private let sampleWaker = SampleWaker()
+    private let samplingIntervalBox = SamplingIntervalBox()
+
+    private var lastPasteboardChangeCount = NSPasteboard.general.changeCount
+    private var clipboardOwnerKey: String?
+    private var lastFrontmostAppKey: String?
 
     private let metricsCollector = SystemMetricsCollector()
     private let processScanner = ProcessScanner()
@@ -43,15 +120,13 @@ public final class FreezeEngine: ObservableObject {
 
     private var lastRawSnapshot: RawSystemSnapshot?
     private var lastSampleTickDate: Date?
-    private var idleSecondsByKey: [String: TimeInterval] = [:]
-    private var serviceIdleSecondsByKey: [String: TimeInterval] = [:]
+    private var tracking = TrackingState()
     private var resumeCooldowns: [String: Date] = [:]
-    private var footprintHistoryByKey: [String: [(date: Date, bytes: UInt64)]] = [:]
     private var isSystemAsleep = false
     private var wakeCooldownUntil: Date?
     private var isStarted = false
 
-    private static let maxAwakeStepSeconds: TimeInterval = 10.0
+    private static let maxAwakeStepSeconds: TimeInterval = 12.0
     private static let settingsDefaultsKey = "dev.givemyramback.settings.v2"
     private static let legacyCryoSettingsKey = "dev.cryoram.settings.v1"
 
@@ -75,9 +150,11 @@ public final class FreezeEngine: ObservableObject {
 
         for runningApp in NSWorkspace.shared.runningApplications {
             let key = appKey(for: runningApp)
-            idleSecondsByKey[key] = 0
+            tracking.appIdleSeconds[key] = 0
         }
         lastSampleTickDate = Date()
+        lastFrontmostAppKey = NSWorkspace.shared.frontmostApplication.map { appKey(for: $0) }
+        samplingIntervalBox.set(isUIVisible ? Self.visibleSamplingInterval : Self.hiddenSamplingInterval)
 
         installWorkspaceObservers()
         installMouseWakeMonitor()
@@ -87,6 +164,7 @@ public final class FreezeEngine: ObservableObject {
     public func stopAndResumeAll(reason: String = "выход из приложения") {
         samplingTask?.cancel()
         samplingTask = nil
+        sampleWaker.wake()
 
         frontmostObservation?.invalidate()
         frontmostObservation = nil
@@ -110,6 +188,25 @@ public final class FreezeEngine: ObservableObject {
         if !resumed.isEmpty {
             syncFrozenCounters()
         }
+    }
+
+    /// Called by the app when the popover / detached window appears or disappears.
+    public func setUIVisible(_ visible: Bool) {
+        guard visible != isUIVisible else { return }
+        isUIVisible = visible
+        Log.engine.debug("UI visible: \(visible, privacy: .public)")
+        samplingIntervalBox.set(visible ? Self.visibleSamplingInterval : Self.hiddenSamplingInterval)
+        if visible {
+            publishUIState()
+            sampleWaker.wake()
+        }
+    }
+
+    private func publishUIState() {
+        if apps != currentApps { apps = currentApps }
+        if services != currentServices { services = currentServices }
+        if memoryHistory != historyStorage { memoryHistory = historyStorage }
+        if memoryStats != memoryStatsStorage { memoryStats = memoryStatsStorage }
     }
 
     // MARK: - User Actions
@@ -141,7 +238,7 @@ public final class FreezeEngine: ObservableObject {
 
     @discardableResult
     public func freezeAllEligibleBackground() -> Int {
-        let candidates = apps.filter { $0.isEligibleForBatchFreezeNow }
+        let candidates = currentApps.filter { $0.isEligibleForBatchFreezeNow }
         guard !candidates.isEmpty else { return 0 }
 
         let samples = lastRawSnapshot?.scan.samplesByPID ?? [:]
@@ -262,15 +359,14 @@ public final class FreezeEngine: ObservableObject {
 
     public func resumeService(_ service: TrackedService, reason: String = "вручную") {
         resumeByKey(service.serviceKey, fallbackName: service.name, reason: reason, refreshSnapshot: true)
-        serviceIdleSecondsByKey[service.serviceKey] = 0
+        tracking.serviceIdleSeconds[service.serviceKey] = 0
     }
 
     public func resumeAll(reason: String = "пользователем") {
         let records = processController.resumeAll()
         let now = Date()
         for record in records {
-            idleSecondsByKey[record.appKey] = 0
-            serviceIdleSecondsByKey[record.appKey] = 0
+            tracking.resetIdle(record.appKey)
             resumeCooldowns[record.appKey] = now.addingTimeInterval(FreezePolicy.resumeCooldownSeconds)
             appendEvent(
                 kind: .resumed,
@@ -294,7 +390,7 @@ public final class FreezeEngine: ObservableObject {
                 settings.appRuleDisplayNames[bundleID] = appName
             }
             if rule == .protected,
-               let frozenApp = apps.first(where: { $0.bundleIdentifier == bundleID && $0.isFrozen }) {
+               let frozenApp = currentApps.first(where: { $0.bundleIdentifier == bundleID && $0.isFrozen }) {
                 resumeApp(frozenApp, reason: "правило «Защита»")
             }
         }
@@ -305,7 +401,7 @@ public final class FreezeEngine: ObservableObject {
             settings.autoFreezeServiceKeys.remove(serviceKey)
         } else {
             settings.autoFreezeServiceKeys.insert(serviceKey)
-            serviceIdleSecondsByKey[serviceKey] = 0
+            tracking.serviceIdleSeconds[serviceKey] = 0
         }
     }
 
@@ -322,6 +418,7 @@ public final class FreezeEngine: ObservableObject {
             let frontmost = workspace.frontmostApplication
             Task { @MainActor [weak self] in
                 guard let self, let frontmost else { return }
+                self.noteFrontmostChange(to: frontmost)
                 self.handleAppWakeEvent(runningApp: frontmost, reason: "переход фокуса")
             }
         }
@@ -334,6 +431,7 @@ public final class FreezeEngine: ObservableObject {
             let runningApp = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
             MainActor.assumeIsolated {
                 guard let self, let runningApp else { return }
+                self.noteFrontmostChange(to: runningApp)
                 self.handleAppWakeEvent(runningApp: runningApp, reason: "активация окна")
             }
         }
@@ -372,9 +470,8 @@ public final class FreezeEngine: ObservableObject {
                 guard let self, let runningApp else { return }
                 let key = self.appKey(for: runningApp)
                 self.processController.pruneExitedRecord(appKey: key)
-                self.idleSecondsByKey.removeValue(forKey: key)
+                self.tracking.forget(key)
                 self.resumeCooldowns.removeValue(forKey: key)
-                self.footprintHistoryByKey.removeValue(forKey: key)
                 self.syncFrozenCounters()
             }
         }
@@ -432,45 +529,70 @@ public final class FreezeEngine: ObservableObject {
 
         let cocoaPoint = NSEvent.mouseLocation
         let cgPoint = CGPoint(x: cocoaPoint.x, y: primaryHeight - cocoaPoint.y)
+        let windows = WindowInspector.readOnScreenWindows()
 
-        guard let infoList = CGWindowListCopyWindowInfo(
-            [.optionOnScreenOnly, .excludeDesktopElements],
-            kCGNullWindowID
-        ) as? [[String: Any]] else {
-            return
-        }
-
-        let selfPID = getpid()
-        for windowInfo in infoList {
-            if let alpha = (windowInfo[kCGWindowAlpha as String] as? NSNumber)?.doubleValue,
-               alpha <= 0.01 {
-                continue
+        let result = WindowInspector.hitTest(
+            point: cgPoint,
+            windows: windows,
+            selfPID: getpid(),
+            isFrozen: { [processController] pid in processController.frozenKey(forPID: pid) != nil },
+            shellKind: { window in
+                if WindowInspector.shellOwnerNames.contains(window.ownerName) { return .other }
+                guard let bundleID = NSRunningApplication(processIdentifier: window.ownerPID)?.bundleIdentifier,
+                      WindowInspector.shellBundleIDs.contains(bundleID) else {
+                    return nil
+                }
+                return bundleID == "com.apple.dock" ? .dock : .other
             }
-            guard let boundsDict = windowInfo[kCGWindowBounds as String] as? NSDictionary,
-                  let bounds = CGRect(dictionaryRepresentation: boundsDict),
-                  bounds.contains(cgPoint),
-                  let ownerPID = (windowInfo[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value,
-                  ownerPID != selfPID else {
-                continue
-            }
+        )
 
-            if let frozenKey = processController.frozenKey(forPID: ownerPID) {
+        switch result {
+        case .frozenWindow(let pid):
+            if let frozenKey = processController.frozenKey(forPID: pid) {
                 resumeByKey(frozenKey, fallbackName: nil, reason: "клик по окну", refreshSnapshot: true)
-                break
             }
-
-            // Only stop scanning if a standard layer-0 app window actually owns this screen point;
-            // non-zero layers can be translucent overlays/shadows that don't block underlying windows.
-            let layer = (windowInfo[kCGWindowLayer as String] as? NSNumber)?.intValue ?? 0
-            if layer == 0 {
-                break
+        case .dock(let dockPID):
+            // A stopped app cannot answer the Dock's activation request, so the click on its
+            // icon would otherwise do nothing. Needs Accessibility permission.
+            guard let bundlePath = WindowInspector.dockItemBundlePath(dockPID: dockPID, point: cgPoint) else {
+                if !WindowInspector.isAccessibilityTrusted {
+                    Log.ui.debug("Dock click ignored: no Accessibility permission")
+                }
+                return
             }
+            let normalized = URL(fileURLWithPath: bundlePath).standardizedFileURL.path
+            for app in currentApps where app.isFrozen {
+                guard let appPath = app.bundlePath,
+                      URL(fileURLWithPath: appPath).standardizedFileURL.path == normalized else { continue }
+                resumeByKey(app.id, fallbackName: app.name, reason: "клик по иконке в Dock", refreshSnapshot: true)
+            }
+        case .none:
+            break
         }
+    }
+
+    /// Attributes pasteboard writes to the app that was frontmost when they happened.
+    private func notePasteboardChange(attributeTo key: String?) {
+        let count = NSPasteboard.general.changeCount
+        guard count != lastPasteboardChangeCount else { return }
+        lastPasteboardChangeCount = count
+        if clipboardOwnerKey != key {
+            Log.engine.info("Clipboard owner → \(key ?? "none", privacy: .public)")
+        }
+        clipboardOwnerKey = key
+    }
+
+    private func noteFrontmostChange(to runningApp: NSRunningApplication) {
+        let key = appKey(for: runningApp)
+        guard key != lastFrontmostAppKey else { return }
+        // Anything copied since the last check was copied in the app we are leaving.
+        notePasteboardChange(attributeTo: lastFrontmostAppKey)
+        lastFrontmostAppKey = key
     }
 
     private func handleAppWakeEvent(runningApp: NSRunningApplication, reason: String) {
         let key = appKey(for: runningApp)
-        idleSecondsByKey[key] = 0
+        tracking.appIdleSeconds[key] = 0
 
         if processController.frozenRecord(forKey: key) != nil {
             resumeByKey(key, fallbackName: runningApp.localizedName, reason: reason, refreshSnapshot: true)
@@ -483,6 +605,9 @@ public final class FreezeEngine: ObservableObject {
         samplingTask?.cancel()
         let metrics = metricsCollector
         let scanner = processScanner
+        let waker = sampleWaker
+        let intervalBox = samplingIntervalBox
+        let selfPID = getpid()
 
         samplingTask = Task.detached(priority: .utility) { [weak self] in
             while !Task.isCancelled {
@@ -490,6 +615,10 @@ public final class FreezeEngine: ObservableObject {
                 let scan = scanner.scanUserProcesses()
                 let audio = metrics.readAudioActivity()
                 let sleepPIDs = metrics.readSleepAssertionPIDs()
+                let visiblePIDs = WindowInspector.visibleWindowPIDs(
+                    windows: WindowInspector.readOnScreenWindows(),
+                    selfPID: selfPID
+                )
 
                 await MainActor.run { [weak self] in
                     guard let self else { return }
@@ -500,13 +629,15 @@ public final class FreezeEngine: ObservableObject {
                         scan: scan,
                         audio: audio,
                         sleepAssertionPIDs: sleepPIDs,
+                        visibleWindowPIDs: visiblePIDs,
                         runningApps: descriptors
                     )
                     self.lastRawSnapshot = snapshot
                     self.applySnapshot(snapshot, advanceIdleClock: true)
                 }
 
-                try? await Task.sleep(for: .seconds(2))
+                if Task.isCancelled { break }
+                await waker.wait(seconds: intervalBox.get())
             }
         }
     }
@@ -532,38 +663,41 @@ public final class FreezeEngine: ObservableObject {
     }
 
     private func applySnapshot(_ snapshot: RawSystemSnapshot, advanceIdleClock: Bool) {
-        self.memoryStats = snapshot.memory
+        let previousPressure = memoryStatsStorage.pressure
+        memoryStatsStorage = snapshot.memory
+        if isUIVisible || memoryStats.pressure != snapshot.memory.pressure {
+            memoryStats = snapshot.memory
+        }
+        if advanceIdleClock && previousPressure != snapshot.memory.pressure {
+            Log.engine.notice("Memory pressure \(previousPressure.rawValue, privacy: .public) → \(snapshot.memory.pressure.rawValue, privacy: .public)")
+        }
 
-        // Compute clamped awake elapsed delta (immune to Mac sleep & system clock jumps)
         let awakeDelta: TimeInterval
         if advanceIdleClock {
-            if isSystemAsleep {
-                awakeDelta = 0
-            } else if let prev = lastSampleTickDate {
-                awakeDelta = min(Self.maxAwakeStepSeconds, max(0, snapshot.timestamp.timeIntervalSince(prev)))
-            } else {
-                awakeDelta = 0
-            }
+            let frontKey = snapshot.runningApps.first(where: \.isFrontmost)?.key
+            notePasteboardChange(attributeTo: frontKey)
+            awakeDelta = SnapshotEvaluator.awakeDelta(
+                now: snapshot.timestamp,
+                previous: lastSampleTickDate,
+                isAsleep: isSystemAsleep,
+                maxStep: Self.maxAwakeStepSeconds
+            )
             lastSampleTickDate = snapshot.timestamp
         } else {
             awakeDelta = 0
         }
 
-        // Prune exited frozen records across both apps and services using exact (pid, startTime) identity
-        for record in processController.allFrozenRecords() {
-            let anyAliveWithSameIdentity = record.identities.contains { identity in
-                guard let sample = snapshot.scan.samplesByPID[identity.pid] else { return false }
-                return sample.startTimeSec == identity.startTimeSec &&
-                       sample.startTimeUsec == identity.startTimeUsec
-            }
-            if !anyAliveWithSameIdentity {
-                processController.pruneExitedRecord(appKey: record.appKey)
-            }
+        for key in SnapshotEvaluator.exitedRecordKeys(
+            records: processController.allFrozenRecords(),
+            samplesByPID: snapshot.scan.samplesByPID
+        ) {
+            Log.process.info("Dropping frozen record \(key, privacy: .public): processes exited")
+            processController.pruneExitedRecord(appKey: key)
         }
 
         // Safety net: if a frozen app became frontmost, resume without recursive applySnapshot
         for desc in snapshot.runningApps where desc.isFrontmost {
-            idleSecondsByKey[desc.key] = 0
+            tracking.appIdleSeconds[desc.key] = 0
             if processController.frozenRecord(forKey: desc.key) != nil {
                 resumeByKey(desc.key, fallbackName: desc.name, reason: "переход фокуса", refreshSnapshot: false)
             }
@@ -577,226 +711,116 @@ public final class FreezeEngine: ObservableObject {
             currentPID: getpid()
         )
 
-        let evalContext = FreezeEvaluationContext(
+        let frozenRecords = Dictionary(
+            processController.allFrozenRecords().map { ($0.appKey, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        let input = SnapshotInput(
+            now: snapshot.timestamp,
+            awakeDelta: awakeDelta,
             settings: settings,
             memoryPressure: snapshot.memory.pressure,
             powerSource: snapshot.memory.powerSource,
-            audioSnapshot: snapshot.audio,
+            samplesByPID: snapshot.scan.samplesByPID,
+            cpuPercentByPID: snapshot.scan.cpuPercentByPID,
+            runningApps: snapshot.runningApps,
+            grouping: grouping,
+            audio: snapshot.audio,
             sleepAssertionPIDs: snapshot.sleepAssertionPIDs,
-            now: snapshot.timestamp,
-            wakeCooldownUntil: wakeCooldownUntil
+            visibleWindowPIDs: snapshot.visibleWindowPIDs,
+            frozenRecords: frozenRecords,
+            resumeCooldowns: resumeCooldowns,
+            wakeCooldownUntil: wakeCooldownUntil,
+            clipboardOwnerKey: clipboardOwnerKey
         )
+        let (appDecisions, serviceDecisions) = SnapshotEvaluator.evaluate(input, state: &tracking)
 
         var nextApps: [TrackedApp] = []
-        nextApps.reserveCapacity(snapshot.runningApps.count)
-        var seenAppKeys = Set<String>()
+        nextApps.reserveCapacity(appDecisions.count)
         var totalReclaimedDRAM: UInt64 = 0
 
-        for desc in snapshot.runningApps {
-            let pids = grouping.appPIDsByKey[desc.key] ?? []
-            guard !pids.isEmpty else { continue }
-            seenAppKeys.insert(desc.key)
+        for decision in appDecisions {
+            let desc = decision.descriptor
+            var record = decision.frozenRecord
+            var status = decision.outcome.status
 
-            let footprint = pids.reduce(UInt64(0)) {
-                $0 + (snapshot.scan.samplesByPID[$1]?.footprintBytes ?? 0)
-            }
-            let resident = pids.reduce(UInt64(0)) {
-                $0 + (snapshot.scan.samplesByPID[$1]?.residentBytes ?? 0)
-            }
-            let cpu = pids.reduce(0.0) {
-                $0 + (snapshot.scan.cpuPercentByPID[$1] ?? 0)
-            }
-
-            let recentGrowth = updateAndComputeGrowth(
-                key: desc.key,
-                now: snapshot.timestamp,
-                footprintBytes: footprint,
-                isFrontmost: desc.isFrontmost
-            )
-
-            let frozenRecord = processController.frozenRecord(forKey: desc.key)
-            if desc.isFrontmost {
-                idleSecondsByKey[desc.key] = 0
-            } else if frozenRecord == nil {
-                idleSecondsByKey[desc.key] = (idleSecondsByKey[desc.key] ?? 0) + awakeDelta
-            }
-
-            let idleSeconds = idleSecondsByKey[desc.key] ?? 0
-            let outcome = FreezePolicy.evaluateApp(
-                descriptor: desc,
-                pids: pids,
-                footprintBytes: footprint,
-                idleSeconds: idleSeconds,
-                frozenRecord: frozenRecord,
-                resumeCooldownUntil: resumeCooldowns[desc.key],
-                context: evalContext
-            )
-
-            var finalStatus = outcome.status
-            var isFrozen = frozenRecord != nil
-            var activeRecord = frozenRecord
-
-            if outcome.shouldAutoFreeze && !isFrozen {
-                let identities = pids.compactMap { snapshot.scan.samplesByPID[$0]?.identity }
-                if let newRecord = processController.freeze(
-                    appKey: desc.key,
-                    appName: desc.name,
-                    mainPID: desc.mainPID,
-                    identities: identities,
-                    footprintBytes: footprint,
-                    residentBytes: resident,
-                    now: snapshot.timestamp
-                ) {
-                    isFrozen = true
-                    activeRecord = newRecord
-                    finalStatus = .frozen(since: newRecord.frozenAt, pidCount: newRecord.identities.count)
-                    appendEvent(
-                        kind: .frozen,
-                        title: desc.name,
-                        detail: "Неактивно \(ByteFormatter.formatDuration(idleSeconds)) · \(ByteFormatter.format(footprint))"
-                    )
+            if decision.outcome.shouldAutoFreeze, record == nil,
+               let newRecord = processController.freeze(
+                   appKey: desc.key,
+                   appName: desc.name,
+                   mainPID: desc.mainPID,
+                   identities: decision.identities,
+                   footprintBytes: decision.footprintBytes,
+                   residentBytes: decision.residentBytes,
+                   now: snapshot.timestamp
+               ) {
+                record = newRecord
+                status = .frozen(since: newRecord.frozenAt, pidCount: newRecord.identities.count)
+                var detail = "Неактивно \(ByteFormatter.formatDuration(decision.idleSeconds)) · \(ByteFormatter.format(decision.footprintBytes))"
+                if settings.freezeOnlyUnderPressure && snapshot.memory.pressure == .normal &&
+                    decision.backgroundCPUPercent >= FreezePolicy.cpuHogThresholdPercent {
+                    detail += String(format: " · фоновая нагрузка CPU %.0f%%", decision.backgroundCPUPercent)
+                } else if snapshot.memory.pressure != .normal {
+                    detail += " · давление памяти: \(snapshot.memory.pressure.displayTitle.lowercased())"
                 }
+                appendEvent(kind: .frozen, title: desc.name, detail: detail)
             }
 
-            let reclaimedDRAM: UInt64
-            if let rec = activeRecord, rec.residentAtFreezeBytes > resident {
-                reclaimedDRAM = rec.residentAtFreezeBytes - resident
-            } else {
-                reclaimedDRAM = 0
-            }
-            totalReclaimedDRAM += reclaimedDRAM
-
-            let rule = settings.rule(for: desc.bundleIdentifier)
-
-            nextApps.append(
-                TrackedApp(
-                    id: desc.key,
-                    bundleIdentifier: desc.bundleIdentifier,
-                    name: desc.name,
-                    bundlePath: desc.bundlePath,
-                    mainPID: desc.mainPID,
-                    pids: pids,
-                    footprintBytes: footprint,
-                    residentBytes: resident,
-                    reclaimedDRAMBytes: reclaimedDRAM,
-                    recentGrowthBytes: recentGrowth,
-                    cpuPercent: cpu,
-                    isFrozen: isFrozen,
-                    status: finalStatus,
-                    rule: rule,
-                    idleSeconds: idleSeconds
-                )
+            let app = SnapshotEvaluator.makeTrackedApp(
+                decision,
+                frozenRecord: record,
+                status: status,
+                rule: settings.rule(for: desc.bundleIdentifier)
             )
+            totalReclaimedDRAM += app.reclaimedDRAMBytes
+            nextApps.append(app)
         }
 
-        // Build services list
-        let minServiceThreshold: UInt64 = 30 * 1_048_576
         var nextServices: [TrackedService] = []
-        var seenServiceKeys = Set<String>()
-
-        for candidate in grouping.standaloneServices {
-            let frozenRecord = processController.frozenRecord(forKey: candidate.serviceKey)
-            let isOptedIn = settings.autoFreezeServiceKeys.contains(candidate.serviceKey)
-            if candidate.footprintBytes < minServiceThreshold && frozenRecord == nil && !isOptedIn {
-                continue
-            }
-            seenServiceKeys.insert(candidate.serviceKey)
-
-            let pidSet = Set(candidate.pids)
-            var protection: ProtectionReason?
-            if settings.protectAudioApps && (!pidSet.isDisjoint(with: snapshot.audio.outputPIDs) || !pidSet.isDisjoint(with: snapshot.audio.inputPIDs)) {
-                protection = !pidSet.isDisjoint(with: snapshot.audio.inputPIDs) ? .usingMicrophone : .playingAudio
-            } else if settings.protectSleepAssertions && !pidSet.isDisjoint(with: snapshot.sleepAssertionPIDs) {
-                protection = .preventingSleep
-            }
-
-            var activeRecord = frozenRecord
-            var isFrozen = frozenRecord != nil
-
-            if !isFrozen && isOptedIn && protection == nil {
-                serviceIdleSecondsByKey[candidate.serviceKey] = (serviceIdleSecondsByKey[candidate.serviceKey] ?? 0) + awakeDelta
-            } else if protection != nil {
-                serviceIdleSecondsByKey[candidate.serviceKey] = 0
-            }
-
-            if isOptedIn && !isFrozen && settings.isAutoFreezeEnabled && protection == nil {
-                let inWakeGrace = wakeCooldownUntil.map { snapshot.timestamp < $0 } ?? false
-                let inResumeCooldown = resumeCooldowns[candidate.serviceKey].map { snapshot.timestamp < $0 } ?? false
-                if !inWakeGrace && !inResumeCooldown {
-                    let serviceIdle = serviceIdleSecondsByKey[candidate.serviceKey] ?? 0
-                    let timeout = FreezePolicy.effectiveIdleTimeoutSeconds(
-                        settings: settings,
-                        pressure: snapshot.memory.pressure,
-                        powerSource: snapshot.memory.powerSource
-                    )
-                    if serviceIdle >= timeout {
-                        let identities = candidate.pids.compactMap { snapshot.scan.samplesByPID[$0]?.identity }
-                        if let rec = processController.freeze(
-                            appKey: candidate.serviceKey,
-                            appName: candidate.name,
-                            mainPID: candidate.mainPID,
-                            identities: identities,
-                            footprintBytes: candidate.footprintBytes,
-                            residentBytes: candidate.residentBytes,
-                            now: snapshot.timestamp
-                        ) {
-                            isFrozen = true
-                            activeRecord = rec
-                            appendEvent(
-                                kind: .frozen,
-                                title: candidate.name,
-                                detail: "Автопауза сервиса (\(ByteFormatter.format(rec.footprintAtFreezeBytes)))"
-                            )
-                        }
-                    }
-                }
-            }
-
-            let reclaimedServiceDRAM: UInt64
-            if let rec = activeRecord, rec.residentAtFreezeBytes > candidate.residentBytes {
-                reclaimedServiceDRAM = rec.residentAtFreezeBytes - candidate.residentBytes
-            } else {
-                reclaimedServiceDRAM = 0
-            }
-            totalReclaimedDRAM += reclaimedServiceDRAM
-
-            nextServices.append(
-                TrackedService(
-                    serviceKey: candidate.serviceKey,
-                    mainPID: candidate.mainPID,
-                    pids: candidate.pids,
-                    name: candidate.name,
-                    executablePath: candidate.executablePath,
-                    footprintBytes: candidate.footprintBytes,
-                    residentBytes: candidate.residentBytes,
-                    reclaimedDRAMBytes: reclaimedServiceDRAM,
-                    cpuPercent: candidate.cpuPercent,
-                    isFrozen: isFrozen,
-                    isProtected: protection != nil,
-                    protectionReason: protection,
-                    isAutoFreezeEnabled: isOptedIn
+        for decision in serviceDecisions {
+            let candidate = decision.candidate
+            var record = decision.frozenRecord
+            if decision.shouldAutoFreeze, record == nil,
+               let newRecord = processController.freeze(
+                   appKey: candidate.serviceKey,
+                   appName: candidate.name,
+                   mainPID: candidate.mainPID,
+                   identities: decision.identities,
+                   footprintBytes: candidate.footprintBytes,
+                   residentBytes: candidate.residentBytes,
+                   now: snapshot.timestamp
+               ) {
+                record = newRecord
+                appendEvent(
+                    kind: .frozen,
+                    title: candidate.name,
+                    detail: "Автопауза сервиса (\(ByteFormatter.format(newRecord.footprintAtFreezeBytes)))"
                 )
-            )
+            }
+            let service = SnapshotEvaluator.makeTrackedService(decision, frozenRecord: record)
+            totalReclaimedDRAM += service.reclaimedDRAMBytes
+            nextServices.append(service)
         }
 
-        // Clean stale dictionary keys for terminated apps/services and expired cooldowns
-        idleSecondsByKey = idleSecondsByKey.filter { seenAppKeys.contains($0.key) }
-        footprintHistoryByKey = footprintHistoryByKey.filter { seenAppKeys.contains($0.key) }
-        serviceIdleSecondsByKey = serviceIdleSecondsByKey.filter { seenServiceKeys.contains($0.key) }
+        if let owner = clipboardOwnerKey, !appDecisions.contains(where: { $0.descriptor.key == owner }) {
+            clipboardOwnerKey = nil
+        }
         resumeCooldowns = resumeCooldowns.filter { $0.value > snapshot.timestamp }
 
-        self.apps = nextApps.sorted {
+        currentApps = nextApps.sorted {
             if $0.footprintBytes != $1.footprintBytes {
                 return $0.footprintBytes > $1.footprintBytes
             }
             return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
         }
-        self.services = nextServices
-        self.totalReclaimedDRAMBytes = totalReclaimedDRAM
+        currentServices = nextServices
+        if totalReclaimedDRAMBytes != totalReclaimedDRAM {
+            totalReclaimedDRAMBytes = totalReclaimedDRAM
+        }
         syncFrozenCounters()
 
         if advanceIdleClock {
-            memoryHistory.append(
+            historyStorage.append(
                 MemoryHistoryPoint(
                     timestamp: snapshot.timestamp,
                     usedRatio: snapshot.memory.usedRatio,
@@ -804,40 +828,21 @@ public final class FreezeEngine: ObservableObject {
                     reclaimedDRAMBytes: totalReclaimedDRAM
                 )
             )
-            if memoryHistory.count > 60 {
-                memoryHistory.removeFirst(memoryHistory.count - 60)
+            if historyStorage.count > 60 {
+                historyStorage.removeFirst(historyStorage.count - 60)
             }
         }
-    }
 
-    private func updateAndComputeGrowth(
-        key: String,
-        now: Date,
-        footprintBytes: UInt64,
-        isFrontmost: Bool
-    ) -> Int64 {
-        if isFrontmost {
-            footprintHistoryByKey[key] = [(now, footprintBytes)]
-            return 0
+        if isUIVisible {
+            publishUIState()
         }
-
-        var samples = footprintHistoryByKey[key] ?? []
-        samples.append((now, footprintBytes))
-        let cutoff = now.addingTimeInterval(-120)
-        samples.removeAll { $0.date < cutoff }
-        footprintHistoryByKey[key] = samples
-
-        guard let oldest = samples.first, now.timeIntervalSince(oldest.date) >= 20 else {
-            return 0
-        }
-        return Int64(footprintBytes) - Int64(oldest.bytes)
+        stateDidChange.send()
     }
 
     private func resumeByKey(_ key: String, fallbackName: String?, reason: String, refreshSnapshot: Bool) {
         guard let record = processController.resume(appKey: key) else { return }
         let now = Date()
-        idleSecondsByKey[key] = 0
-        serviceIdleSecondsByKey[key] = 0
+        tracking.resetIdle(key)
         resumeCooldowns[key] = now.addingTimeInterval(FreezePolicy.resumeCooldownSeconds)
 
         let title = fallbackName ?? record.appName
@@ -855,11 +860,22 @@ public final class FreezeEngine: ObservableObject {
 
     private func syncFrozenCounters() {
         let records = processController.allFrozenRecords()
-        frozenCount = records.count
-        totalFrozenFootprintBytes = records.reduce(0) { $0 + $1.footprintAtFreezeBytes }
+        let count = records.count
+        let bytes = records.reduce(UInt64(0)) { $0 + $1.footprintAtFreezeBytes }
+        if frozenCount != count {
+            frozenCount = count
+            stateDidChange.send()
+        }
+        if totalFrozenFootprintBytes != bytes { totalFrozenFootprintBytes = bytes }
     }
 
     private func appendEvent(kind: ActivityEvent.Kind, title: String, detail: String) {
+        switch kind {
+        case .frozen, .resumed, .recovered:
+            Log.freeze.notice("\(kind.rawValue, privacy: .public) «\(title, privacy: .public)»: \(detail, privacy: .public)")
+        case .relaunched, .skipped:
+            Log.engine.info("\(kind.rawValue, privacy: .public) «\(title, privacy: .public)»: \(detail, privacy: .public)")
+        }
         events.insert(ActivityEvent(kind: kind, title: title, detail: detail), at: 0)
         if events.count > 60 {
             events.removeLast(events.count - 60)
@@ -923,5 +939,23 @@ public final class FreezeEngine: ObservableObject {
         if let data = try? JSONEncoder().encode(settings) {
             UserDefaults.standard.set(data, forKey: Self.settingsDefaultsKey)
         }
+    }
+}
+
+/// Thread-safe holder for the current sampling interval, read by the detached sampling task.
+final class SamplingIntervalBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: Double = 5
+
+    func get() -> Double {
+        lock.lock()
+        defer { lock.unlock() }
+        return value
+    }
+
+    func set(_ newValue: Double) {
+        lock.lock()
+        value = newValue
+        lock.unlock()
     }
 }

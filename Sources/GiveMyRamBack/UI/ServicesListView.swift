@@ -48,6 +48,12 @@ struct ServicesListView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
+                if filteredServices.contains(where: { $0.isFrozen || $0.isAutoFreezeEnabled }) {
+                    Label("Сервисы на паузе не просыпаются сами — зависящие от них программы могут зависнуть", systemImage: "exclamationmark.triangle")
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(Array(filteredServices.enumerated()), id: \.element.id) { index, service in
@@ -74,6 +80,36 @@ struct ServicesListView: View {
 private struct ServiceRowView: View {
     let service: TrackedService
     @ObservedObject var engine: FreezeEngine
+
+    private enum PendingAction {
+        case pauseNow
+        case enableAutoPause
+    }
+
+    @State private var pendingAction: PendingAction?
+
+    /// Services are never woken automatically (they have no windows to click and never become
+    /// frontmost), and apps talking to them over XPC hang until they are resumed. Warn first.
+    private func requestPause(_ action: PendingAction) {
+        if engine.settings.acknowledgedServiceRisk {
+            perform(action)
+        } else {
+            pendingAction = action
+        }
+    }
+
+    private func perform(_ action: PendingAction) {
+        switch action {
+        case .pauseNow:
+            engine.freezeService(service)
+        case .enableAutoPause:
+            engine.toggleServiceAutoFreeze(serviceKey: service.serviceKey)
+        }
+    }
+
+    private var isShowingWarning: Binding<Bool> {
+        Binding(get: { pendingAction != nil }, set: { if !$0 { pendingAction = nil } })
+    }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -134,7 +170,13 @@ private struct ServiceRowView: View {
 
             Toggle("", isOn: Binding(
                 get: { service.isAutoFreezeEnabled },
-                set: { _ in engine.toggleServiceAutoFreeze(serviceKey: service.serviceKey) }
+                set: { enable in
+                    if enable {
+                        requestPause(.enableAutoPause)
+                    } else {
+                        engine.toggleServiceAutoFreeze(serviceKey: service.serviceKey)
+                    }
+                }
             ))
             .toggleStyle(.switch)
             .controlSize(.mini)
@@ -148,7 +190,7 @@ private struct ServiceRowView: View {
                 .buttonStyle(MonochromePillButtonStyle(prominent: true))
             } else {
                 Button("Пауза") {
-                    engine.freezeService(service)
+                    requestPause(.pauseNow)
                 }
                 .buttonStyle(MonochromePillButtonStyle(prominent: false))
                 .disabled(service.isProtected)
@@ -157,5 +199,21 @@ private struct ServiceRowView: View {
         .padding(.horizontal, 11)
         .padding(.vertical, 9)
         .background(service.isFrozen ? Color.primary.opacity(0.06) : Color.clear)
+        .alert("Поставить сервис «\(service.name)» на паузу?", isPresented: isShowingWarning) {
+            Button("Продолжить") {
+                if let action = pendingAction { perform(action) }
+                pendingAction = nil
+            }
+            Button("Продолжить и больше не спрашивать") {
+                engine.settings.acknowledgedServiceRisk = true
+                if let action = pendingAction { perform(action) }
+                pendingAction = nil
+            }
+            Button("Отмена", role: .cancel) {
+                pendingAction = nil
+            }
+        } message: {
+            Text("Фоновые сервисы не просыпаются сами: у них нет окна, по которому можно кликнуть. Программы, которые с ними работают (синхронизация, плагины, помощники), могут зависнуть, пока вы не нажмёте «Вернуть».")
+        }
     }
 }
