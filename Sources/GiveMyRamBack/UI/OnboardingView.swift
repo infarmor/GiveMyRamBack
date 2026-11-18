@@ -37,6 +37,9 @@ struct InstalledMessenger: Identifiable {
 
 struct OnboardingView: View {
     @ObservedObject var engine: FreezeEngine
+    /// First launch: pre-select chat apps for protection. Reopened from Settings: reflect the
+    /// rules the user already has, so clicking through changes nothing.
+    let isFirstRun: Bool
     let onFinish: () -> Void
 
     @State private var page = 0
@@ -44,7 +47,6 @@ struct OnboardingView: View {
     @State private var protectedMessengers: Set<String> = []
     @State private var isAccessibilityTrusted = WindowInspector.isAccessibilityTrusted
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
-    private let trustPoll = Timer.publish(every: 1.5, on: .main, in: .common).autoconnect()
 
     private let pageCount = 4
 
@@ -101,11 +103,19 @@ struct OnboardingView: View {
         .frame(width: 540, height: 500)
         .onAppear {
             messengers = InstalledMessenger.detect()
-            // Default: protect every installed messenger unless the user already chose a rule.
-            protectedMessengers = Set(messengers.filter { engine.settings.appRules[$0.bundleID] != .fast }.map(\.bundleID))
+            protectedMessengers = Set(messengers.filter { messenger in
+                switch engine.settings.appRules[messenger.bundleID] {
+                case .protected: return true
+                case .fast: return false
+                case .automatic, nil: return isFirstRun && KnownApps.isChatApp(messenger.bundleID)
+                }
+            }.map(\.bundleID))
         }
-        .onReceive(trustPoll) { _ in
-            if page == 3 && !isAccessibilityTrusted {
+        .task(id: page) {
+            // Reflect a permission granted in System Settings while the last page is open.
+            guard page == 3 else { return }
+            while !Task.isCancelled && !isAccessibilityTrusted {
+                try? await Task.sleep(for: .seconds(1.5))
                 isAccessibilityTrusted = WindowInspector.isAccessibilityTrusted
             }
         }
@@ -159,10 +169,9 @@ struct OnboardingView: View {
                 HStack {
                     Text("Через")
                     Picker("", selection: $engine.settings.idleTimeoutMinutes) {
-                        Text("5 мин").tag(5.0)
-                        Text("10 мин").tag(10.0)
-                        Text("20 мин").tag(20.0)
-                        Text("30 мин").tag(30.0)
+                        ForEach(idleOptions, id: \.self) { minutes in
+                            Text("\(Int(minutes)) мин").tag(minutes)
+                        }
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
@@ -283,6 +292,12 @@ struct OnboardingView: View {
     }
 
     // MARK: Helpers
+
+    /// Common presets plus the user's own value (e.g. 15 min set in Settings), so the control
+    /// always shows a selection.
+    private var idleOptions: [Double] {
+        Array(Set([5, 10, 20, 30, engine.settings.idleTimeoutMinutes.rounded()])).sorted()
+    }
 
     private func title(_ text: LocalizedStringKey, subtitle: LocalizedStringKey) -> some View {
         VStack(alignment: .leading, spacing: 4) {

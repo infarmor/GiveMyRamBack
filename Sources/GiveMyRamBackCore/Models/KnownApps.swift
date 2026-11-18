@@ -22,4 +22,9 @@ public enum KnownApps {
         ("ru.dgis.vkteams", "VK Teams"),
         ("im.riot.app", "Element")
     ] }
+
+    /// Chat apps whose notifications people rely on; mail clients are offered but not pre-selected.
+    public static func isChatApp(_ bundleID: String) -> Bool {
+        !["com.apple.mail", "com.microsoft.Outlook", "us.zoom.xos"].contains(bundleID)
+    }
 }

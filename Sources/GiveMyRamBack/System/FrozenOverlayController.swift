@@ -58,8 +58,15 @@ final class FrozenOverlayController {
             return
         }
 
+        let windows = WindowInspector.readOnScreenWindows()
+        // Front-to-back position of every on-screen window, ours included.
+        var stackIndex: [CGWindowID: Int] = [:]
+        for (index, window) in windows.enumerated() {
+            stackIndex[window.windowID] = index
+        }
+
         var keep = Set<CGWindowID>()
-        for window in WindowInspector.readOnScreenWindows() {
+        for window in windows {
             guard window.layer == 0,
                   window.windowID != 0,
                   window.alpha > 0.01,
@@ -83,8 +90,14 @@ final class FrozenOverlayController {
                 panel.setFrame(frame, display: true)
             }
             // Sit directly above the frozen window, not above everything: windows that cover the
-            // frozen one keep covering the overlay too.
-            panel.order(.above, relativeTo: Int(window.windowID))
+            // frozen one keep covering the overlay too. Only touch the window server when the
+            // overlay isn't already right there.
+            let panelIndex = stackIndex[CGWindowID(panel.windowNumber)]
+            let targetIndex = stackIndex[window.windowID]
+            let isInPlace = panel.isVisible && panelIndex != nil && targetIndex != nil && panelIndex! + 1 == targetIndex!
+            if !isInPlace {
+                panel.order(.above, relativeTo: Int(window.windowID))
+            }
         }
 
         for (id, panel) in panels where !keep.contains(id) {

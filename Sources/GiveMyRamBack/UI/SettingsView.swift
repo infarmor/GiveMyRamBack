@@ -12,7 +12,6 @@ struct SettingsView: View {
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var launchAtLoginError: String?
     @State private var isAccessibilityTrusted = WindowInspector.isAccessibilityTrusted
-    private let trustPoll = Timer.publish(every: 1.5, on: .main, in: .common).autoconnect()
 
     private var customRuleEntries: [(bundleID: String, name: String, rule: AppFreezeRule)] {
         engine.settings.appRules
@@ -281,9 +280,10 @@ struct SettingsView: View {
             launchAtLogin = (SMAppService.mainApp.status == .enabled)
             isAccessibilityTrusted = WindowInspector.isAccessibilityTrusted
         }
-        .onReceive(trustPoll) { _ in
+        .task {
             // The user grants access in System Settings; reflect it without reopening the view.
-            if !isAccessibilityTrusted {
+            while !Task.isCancelled && !isAccessibilityTrusted {
+                try? await Task.sleep(for: .seconds(1.5))
                 isAccessibilityTrusted = WindowInspector.isAccessibilityTrusted
             }
         }

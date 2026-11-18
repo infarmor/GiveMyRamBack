@@ -407,8 +407,13 @@ public struct FrozenRecord: Codable, Sendable, Equatable {
     public let frozenAt: Date
     public let footprintAtFreezeBytes: UInt64
     public let residentAtFreezeBytes: UInt64
-    /// Human-readable cause, e.g. «неактивно 12 мин» or «вручную». Optional for old state files.
-    public let reason: String?
+    /// Why it was frozen (for «Почему?»). Optional and decoded leniently: an unreadable cause
+    /// must never stop crash recovery from resuming the processes.
+    public let cause: FreezeReason?
+
+    private enum CodingKeys: String, CodingKey {
+        case appKey, appName, mainPID, identities, frozenAt, footprintAtFreezeBytes, residentAtFreezeBytes, cause
+    }
 
     public init(
         appKey: String,
@@ -418,9 +423,8 @@ public struct FrozenRecord: Codable, Sendable, Equatable {
         frozenAt: Date,
         footprintAtFreezeBytes: UInt64,
         residentAtFreezeBytes: UInt64 = 0,
-        reason: String? = nil
+        cause: FreezeReason? = nil
     ) {
-        self.reason = reason
         self.appKey = appKey
         self.appName = appName
         self.mainPID = mainPID
@@ -428,6 +432,19 @@ public struct FrozenRecord: Codable, Sendable, Equatable {
         self.frozenAt = frozenAt
         self.footprintAtFreezeBytes = footprintAtFreezeBytes
         self.residentAtFreezeBytes = residentAtFreezeBytes
+        self.cause = cause
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        appKey = try c.decode(String.self, forKey: .appKey)
+        appName = try c.decode(String.self, forKey: .appName)
+        mainPID = try c.decode(Int32.self, forKey: .mainPID)
+        identities = try c.decode([ProcessIdentity].self, forKey: .identities)
+        frozenAt = (try? c.decode(Date.self, forKey: .frozenAt)) ?? Date()
+        footprintAtFreezeBytes = (try? c.decode(UInt64.self, forKey: .footprintAtFreezeBytes)) ?? 0
+        residentAtFreezeBytes = (try? c.decodeIfPresent(UInt64.self, forKey: .residentAtFreezeBytes)) ?? 0
+        cause = try? c.decodeIfPresent(FreezeReason.self, forKey: .cause)
     }
 }
 
@@ -444,20 +461,50 @@ public struct ActivityEvent: Identifiable, Sendable, Equatable, Codable {
     public let timestamp: Date
     public let kind: Kind
     public let title: String
-    public let detail: String
+    public let text: EventText
+
+    /// Rendered in the current interface language.
+    public var detail: String { text.localized }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, timestamp, kind, title, text, detail
+    }
 
     public init(
         id: UUID = UUID(),
         timestamp: Date = Date(),
         kind: Kind,
         title: String,
-        detail: String
+        text: EventText
     ) {
         self.id = id
         self.timestamp = timestamp
         self.kind = kind
         self.title = title
-        self.detail = detail
+        self.text = text
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = (try? c.decode(UUID.self, forKey: .id)) ?? UUID()
+        timestamp = (try? c.decode(Date.self, forKey: .timestamp)) ?? Date()
+        kind = (try? c.decode(Kind.self, forKey: .kind)) ?? .skipped
+        title = (try? c.decode(String.self, forKey: .title)) ?? ""
+        if let structured = try? c.decode(EventText.self, forKey: .text) {
+            text = structured
+        } else {
+            // Logs written by 2.2.0 stored the already-rendered string.
+            text = .legacy((try? c.decode(String.self, forKey: .detail)) ?? "")
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(timestamp, forKey: .timestamp)
+        try c.encode(kind, forKey: .kind)
+        try c.encode(title, forKey: .title)
+        try c.encode(text, forKey: .text)
     }
 }
 
@@ -529,7 +576,9 @@ public struct EngineSettings: Codable, Equatable, Sendable {
         showFrozenOverlay = try c.decodeIfPresent(Bool.self, forKey: .showFrozenOverlay) ?? d.showFrozenOverlay
         acknowledgedServiceRisk = try c.decodeIfPresent(Bool.self, forKey: .acknowledgedServiceRisk) ?? d.acknowledgedServiceRisk
         checkForUpdates = try c.decodeIfPresent(Bool.self, forKey: .checkForUpdates) ?? d.checkForUpdates
-        hasCompletedOnboarding = try c.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? d.hasCompletedOnboarding
+        // Settings saved by a build without onboarding belong to an existing user: don't show
+        // them a first-run flow that would rewrite their rules. Fresh installs use init().
+        hasCompletedOnboarding = try c.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? true
     }
 
     public init(

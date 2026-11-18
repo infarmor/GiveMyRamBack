@@ -35,15 +35,7 @@ public enum CrashGuard {
         _ = crashPIDBuffer
         _ = crashPIDCapacity
 
-        // Alternate stack so a stack-overflow SIGSEGV can still run the handler.
-        if crashAltStack == nil {
-            let size = 64 * 1024
-            if let mem = malloc(size) {
-                crashAltStack = mem
-                var stack = stack_t(ss_sp: mem, ss_size: size, ss_flags: 0)
-                sigaltstack(&stack, nil)
-            }
-        }
+        ensureAltStackForCurrentThread()
 
         let fatalSignals: [Int32] = [SIGSEGV, SIGBUS, SIGILL, SIGABRT, SIGFPE, SIGTRAP, SIGSYS]
         for sig in fatalSignals {
@@ -64,14 +56,30 @@ public enum CrashGuard {
         }
     }
 
+    /// Alternate signal stacks are per thread. Without one, a stack-overflow SIGSEGV on that
+    /// thread can't run the handler, so every thread doing real work (main thread, sampling
+    /// task) installs one. Cheap when already installed: a single `sigaltstack` query.
+    public static func ensureAltStackForCurrentThread() {
+        var current = stack_t()
+        guard sigaltstack(nil, &current) == 0 else { return }
+        if current.ss_flags & SS_DISABLE == 0 { return }
+        let size = 64 * 1024
+        guard let mem = malloc(size) else { return }
+        var stack = stack_t(ss_sp: mem, ss_size: size, ss_flags: 0)
+        if sigaltstack(&stack, nil) != 0 {
+            free(mem)
+        } else if Thread.isMainThread {
+            crashAltStack = mem
+        }
+    }
+
     // MARK: - Watchdog
 
     /// Starts the watchdog child for the current process. Safe to call once per app launch.
     @discardableResult
     public static func spawnWatchdog() -> Process? {
-        guard let executable = Bundle.main.executableURL ?? URL(string: CommandLine.arguments[0]) else {
-            return nil
-        }
+        let executable = Bundle.main.executableURL
+            ?? URL(fileURLWithPath: CommandLine.arguments[0]).standardizedFileURL
         let process = Process()
         process.executableURL = executable
         process.arguments = [watchdogArgument, String(getpid())]

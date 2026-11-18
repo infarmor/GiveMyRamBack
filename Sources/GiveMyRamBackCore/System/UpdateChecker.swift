@@ -39,9 +39,14 @@ public final class UpdateChecker: ObservableObject {
     public static let releasesPage = URL(string: "https://github.com/infarmor/GiveMyRamBack/releases/latest")!
     private static let lastCheckKey = "dev.givemyramback.update.lastCheck"
     private static let dismissedKey = "dev.givemyramback.update.dismissedVersion"
+    private static let availableKey = "dev.givemyramback.update.available"
     private static let checkInterval: TimeInterval = 24 * 3600
 
-    @Published public private(set) var available: ReleaseInfo?
+    /// Newer release found by the last successful check. Persisted, because checks run at most
+    /// once a day and a relaunch in between must not forget that an update exists.
+    @Published public private(set) var available: ReleaseInfo? {
+        didSet { Self.storeAvailable(available) }
+    }
     @Published public private(set) var isChecking = false
     @Published public private(set) var lastCheck: Date?
     @Published public private(set) var lastError: String?
@@ -55,6 +60,25 @@ public final class UpdateChecker: ObservableObject {
         self.currentVersion = currentVersion
         self.session = session
         self.lastCheck = UserDefaults.standard.object(forKey: Self.lastCheckKey) as? Date
+        // Drop a remembered release once this build is that version or newer (the user updated).
+        if let saved = Self.loadAvailable(), VersionComparator.isNewer(saved.version, than: currentVersion) {
+            self.available = saved
+        } else {
+            Self.storeAvailable(nil)
+        }
+    }
+
+    private static func loadAvailable() -> ReleaseInfo? {
+        guard let data = UserDefaults.standard.data(forKey: availableKey) else { return nil }
+        return try? JSONDecoder().decode(ReleaseInfo.self, from: data)
+    }
+
+    private static func storeAvailable(_ release: ReleaseInfo?) {
+        if let release, let data = try? JSONEncoder().encode(release) {
+            UserDefaults.standard.set(data, forKey: availableKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: availableKey)
+        }
     }
 
     /// Release the banner should show (not dismissed by the user).

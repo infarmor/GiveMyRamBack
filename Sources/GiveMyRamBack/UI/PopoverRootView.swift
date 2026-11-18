@@ -375,7 +375,7 @@ struct PopoverRootView: View {
 
             if engine.frozenCount > 0 {
                 Button {
-                    engine.resumeAll(reason: String(localized: "кнопка «Разморозить»"))
+                    engine.resumeAll(reason: .resumeButton)
                 } label: {
                     Text("Разморозить (\(engine.frozenCount))")
                         .padding(.vertical, 2)

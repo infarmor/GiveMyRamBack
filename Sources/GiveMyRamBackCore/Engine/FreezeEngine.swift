@@ -159,7 +159,7 @@ public final class FreezeEngine: ObservableObject {
             appendEvent(
                 kind: .recovered,
                 title: appName,
-                detail: String(localized: "Возобновлено после предыдущего запуска")
+                text: .recovered
             )
         }
 
@@ -176,7 +176,7 @@ public final class FreezeEngine: ObservableObject {
         startSamplingLoop()
     }
 
-    public func stopAndResumeAll(reason: String = String(localized: "выход из приложения")) {
+    public func stopAndResumeAll(reason: FreezeReason = .appQuit) {
         samplingTask?.cancel()
         samplingTask = nil
         sampleWaker.wake()
@@ -235,11 +235,10 @@ public final class FreezeEngine: ObservableObject {
 
     // MARK: - User Actions
 
-    public func freezeApp(_ app: TrackedApp, reason: String? = nil) {
+    public func freezeApp(_ app: TrackedApp, reason: FreezeReason = .manual) {
         let samples = lastRawSnapshot?.scan.samplesByPID ?? [:]
         let identities = app.pids.compactMap { samples[$0]?.identity }
         guard !identities.isEmpty else { return }
-        let reason = reason ?? String(localized: "вручную")
 
         if let record = processController.freeze(
             appKey: app.id,
@@ -248,14 +247,10 @@ public final class FreezeEngine: ObservableObject {
             identities: identities,
             footprintBytes: app.footprintBytes,
             residentBytes: app.residentBytes,
-            reason: reason
+            cause: reason
         ) {
             noteFreezes(1)
-            appendEvent(
-                kind: .frozen,
-                title: app.name,
-                detail: String(localized: "Заморожено (\(ByteFormatter.format(record.footprintAtFreezeBytes)), \(reason))")
-            )
+            appendEvent(kind: .frozen, title: app.name, text: .frozen(bytes: record.footprintAtFreezeBytes, reason: reason))
             syncFrozenCounters()
             if let lastRawSnapshot {
                 applySnapshot(lastRawSnapshot, advanceIdleClock: false)
@@ -282,7 +277,7 @@ public final class FreezeEngine: ObservableObject {
                 identities: identities,
                 footprintBytes: app.footprintBytes,
                 residentBytes: app.residentBytes,
-                reason: String(localized: "кнопка «Вернуть RAM»")
+                cause: .batchButton
             ) {
                 frozenTotal += 1
                 frozenBytes += record.footprintAtFreezeBytes
@@ -294,7 +289,7 @@ public final class FreezeEngine: ObservableObject {
             appendEvent(
                 kind: .frozen,
                 title: "Give my ram back",
-                detail: String(localized: "На паузу поставлено приложений: \(frozenTotal) (~\(ByteFormatter.format(frozenBytes)))")
+                text: .frozenBatch(count: frozenTotal, bytes: frozenBytes)
             )
             syncFrozenCounters()
             if let lastRawSnapshot {
@@ -304,7 +299,7 @@ public final class FreezeEngine: ObservableObject {
         return frozenTotal
     }
 
-    public func resumeApp(_ app: TrackedApp, reason: String = String(localized: "вручную")) {
+    public func resumeApp(_ app: TrackedApp, reason: FreezeReason = .manual) {
         resumeByKey(app.id, fallbackName: app.name, reason: reason, refreshSnapshot: true)
     }
 
@@ -324,7 +319,7 @@ public final class FreezeEngine: ObservableObject {
             appendEvent(
                 kind: .skipped,
                 title: appName,
-                detail: String(localized: "Не удалось запросить завершение приложения")
+                text: .relaunchQuitFailed
             )
             return
         }
@@ -332,7 +327,7 @@ public final class FreezeEngine: ObservableObject {
         appendEvent(
             kind: .relaunched,
             title: appName,
-            detail: String(localized: "Мягкий перезапуск для сброса памяти")
+            text: .relaunched
         )
 
         Task { @MainActor [weak self] in
@@ -350,7 +345,7 @@ public final class FreezeEngine: ObservableObject {
                 self?.appendEvent(
                     kind: .skipped,
                     title: appName,
-                    detail: String(localized: "Перезапуск отменён: приложение ожидает подтверждения")
+                    text: .relaunchCancelled
                 )
                 return
             }
@@ -361,11 +356,10 @@ public final class FreezeEngine: ObservableObject {
         }
     }
 
-    public func freezeService(_ service: TrackedService, reason: String? = nil) {
+    public func freezeService(_ service: TrackedService, reason: FreezeReason = .manual) {
         let samples = lastRawSnapshot?.scan.samplesByPID ?? [:]
         let identities = service.pids.compactMap { samples[$0]?.identity }
         guard !identities.isEmpty else { return }
-        let reason = reason ?? String(localized: "вручную")
 
         if let record = processController.freeze(
             appKey: service.serviceKey,
@@ -374,14 +368,10 @@ public final class FreezeEngine: ObservableObject {
             identities: identities,
             footprintBytes: service.footprintBytes,
             residentBytes: service.residentBytes,
-            reason: reason
+            cause: reason
         ) {
             noteFreezes(1)
-            appendEvent(
-                kind: .frozen,
-                title: service.name,
-                detail: String(localized: "Сервис на паузе (\(ByteFormatter.format(record.footprintAtFreezeBytes)), \(reason))")
-            )
+            appendEvent(kind: .frozen, title: service.name, text: .serviceFrozen(bytes: record.footprintAtFreezeBytes, reason: reason))
             syncFrozenCounters()
             if let lastRawSnapshot {
                 applySnapshot(lastRawSnapshot, advanceIdleClock: false)
@@ -389,12 +379,12 @@ public final class FreezeEngine: ObservableObject {
         }
     }
 
-    public func resumeService(_ service: TrackedService, reason: String = String(localized: "вручную")) {
+    public func resumeService(_ service: TrackedService, reason: FreezeReason = .manual) {
         resumeByKey(service.serviceKey, fallbackName: service.name, reason: reason, refreshSnapshot: true)
         tracking.serviceIdleSeconds[service.serviceKey] = 0
     }
 
-    public func resumeAll(reason: String = String(localized: "пользователем")) {
+    public func resumeAll(reason: FreezeReason = .byUser) {
         let records = processController.resumeAll()
         let now = Date()
         for record in records {
@@ -403,7 +393,7 @@ public final class FreezeEngine: ObservableObject {
             appendEvent(
                 kind: .resumed,
                 title: record.appName,
-                detail: String(localized: "Возобновлено (\(reason))")
+                text: .resumed(reason: reason)
             )
         }
         syncFrozenCounters()
@@ -423,7 +413,7 @@ public final class FreezeEngine: ObservableObject {
             }
             if rule == .protected,
                let frozenApp = currentApps.first(where: { $0.bundleIdentifier == bundleID && $0.isFrozen }) {
-                resumeApp(frozenApp, reason: String(localized: "правило «Защита»"))
+                resumeApp(frozenApp, reason: .protectedRule)
             }
         }
     }
@@ -452,7 +442,7 @@ public final class FreezeEngine: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self, let frontmost else { return }
                 self.noteFrontmostChange(to: frontmost)
-                self.handleAppWakeEvent(runningApp: frontmost, reason: String(localized: "переход фокуса"))
+                self.handleAppWakeEvent(runningApp: frontmost, reason: .focusChange)
             }
         }
 
@@ -465,7 +455,7 @@ public final class FreezeEngine: ObservableObject {
             MainActor.assumeIsolated {
                 guard let self, let runningApp else { return }
                 self.noteFrontmostChange(to: runningApp)
-                self.handleAppWakeEvent(runningApp: runningApp, reason: String(localized: "активация окна"))
+                self.handleAppWakeEvent(runningApp: runningApp, reason: .windowActivated)
             }
         }
 
@@ -477,7 +467,7 @@ public final class FreezeEngine: ObservableObject {
             let runningApp = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
             MainActor.assumeIsolated {
                 guard let self, let runningApp else { return }
-                self.handleAppWakeEvent(runningApp: runningApp, reason: String(localized: "открытие приложения"))
+                self.handleAppWakeEvent(runningApp: runningApp, reason: .appOpened)
             }
         }
 
@@ -489,7 +479,7 @@ public final class FreezeEngine: ObservableObject {
             let runningApp = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
             MainActor.assumeIsolated {
                 guard let self, let runningApp else { return }
-                self.handleAppWakeEvent(runningApp: runningApp, reason: String(localized: "показ окна"))
+                self.handleAppWakeEvent(runningApp: runningApp, reason: .windowShown)
             }
         }
 
@@ -582,25 +572,32 @@ public final class FreezeEngine: ObservableObject {
         switch result {
         case .frozenWindow(let pid):
             if let frozenKey = processController.frozenKey(forPID: pid) {
-                resumeByKey(frozenKey, fallbackName: nil, reason: String(localized: "клик по окну"), refreshSnapshot: true)
+                resumeByKey(frozenKey, fallbackName: nil, reason: .windowClick, refreshSnapshot: true)
             }
         case .dock(let dockPID):
             // A stopped app cannot answer the Dock's activation request, so the click on its
-            // icon would otherwise do nothing. Needs Accessibility permission.
-            guard let bundlePath = WindowInspector.dockItemBundlePath(dockPID: dockPID, point: cgPoint) else {
-                if !WindowInspector.isAccessibilityTrusted {
-                    Log.ui.debug("Dock click ignored: no Accessibility permission")
-                }
+            // icon would otherwise do nothing. Needs Accessibility permission. The AX round-trip
+            // to the Dock can take up to its timeout, so it runs off the main thread.
+            guard WindowInspector.isAccessibilityTrusted else {
+                Log.ui.debug("Dock click ignored: no Accessibility permission")
                 return
             }
-            let normalized = URL(fileURLWithPath: bundlePath).standardizedFileURL.path
-            for app in currentApps where app.isFrozen {
-                guard let appPath = app.bundlePath,
-                      URL(fileURLWithPath: appPath).standardizedFileURL.path == normalized else { continue }
-                resumeByKey(app.id, fallbackName: app.name, reason: String(localized: "клик по иконке в Dock"), refreshSnapshot: true)
+            let point = cgPoint
+            Task.detached(priority: .userInitiated) { [weak self] in
+                guard let bundlePath = WindowInspector.dockItemBundlePath(dockPID: dockPID, point: point) else { return }
+                await self?.resumeFrozenApps(atBundlePath: bundlePath)
             }
         case .none:
             break
+        }
+    }
+
+    private func resumeFrozenApps(atBundlePath bundlePath: String) {
+        let normalized = URL(fileURLWithPath: bundlePath).standardizedFileURL.path
+        for app in currentApps where app.isFrozen {
+            guard let appPath = app.bundlePath,
+                  URL(fileURLWithPath: appPath).standardizedFileURL.path == normalized else { continue }
+            resumeByKey(app.id, fallbackName: app.name, reason: .dockIconClick, refreshSnapshot: true)
         }
     }
 
@@ -623,7 +620,7 @@ public final class FreezeEngine: ObservableObject {
         lastFrontmostAppKey = key
     }
 
-    private func handleAppWakeEvent(runningApp: NSRunningApplication, reason: String) {
+    private func handleAppWakeEvent(runningApp: NSRunningApplication, reason: FreezeReason) {
         let key = appKey(for: runningApp)
         tracking.appIdleSeconds[key] = 0
 
@@ -644,6 +641,9 @@ public final class FreezeEngine: ObservableObject {
 
         samplingTask = Task.detached(priority: .utility) { [weak self] in
             while !Task.isCancelled {
+                // Cooperative threads change between iterations; make sure this one can still
+                // run the crash handler on a stack overflow.
+                CrashGuard.ensureAltStackForCurrentThread()
                 let memory = metrics.readMemoryStats()
                 let scan = scanner.scanUserProcesses()
                 let audio = metrics.readAudioActivity()
@@ -732,7 +732,7 @@ public final class FreezeEngine: ObservableObject {
         for desc in snapshot.runningApps where desc.isFrontmost {
             tracking.appIdleSeconds[desc.key] = 0
             if processController.frozenRecord(forKey: desc.key) != nil {
-                resumeByKey(desc.key, fallbackName: desc.name, reason: String(localized: "переход фокуса"), refreshSnapshot: false)
+                resumeByKey(desc.key, fallbackName: desc.name, reason: .focusChange, refreshSnapshot: false)
             }
         }
 
@@ -778,15 +778,13 @@ public final class FreezeEngine: ObservableObject {
             var status = decision.outcome.status
 
             if decision.outcome.shouldAutoFreeze, record == nil {
-                let idle = ByteFormatter.formatDuration(decision.idleSeconds)
-                var reason = String(localized: "неактивна \(idle)")
-                if settings.freezeOnlyUnderPressure && snapshot.memory.pressure == .normal &&
-                    decision.backgroundCPUPercent >= FreezePolicy.cpuHogThresholdPercent {
-                    let cpu = Int(decision.backgroundCPUPercent.rounded())
-                    reason += String(localized: ", фоновая нагрузка CPU \(cpu)%")
-                } else if snapshot.memory.pressure != .normal {
-                    reason += String(localized: ", давление памяти: \(snapshot.memory.pressure.displayTitle.lowercased())")
-                }
+                let isCPUHog = settings.freezeOnlyUnderPressure && snapshot.memory.pressure == .normal &&
+                    decision.backgroundCPUPercent >= FreezePolicy.cpuHogThresholdPercent
+                let reason = FreezeReason.idle(
+                    seconds: decision.idleSeconds,
+                    backgroundCPUPercent: isCPUHog ? Int(decision.backgroundCPUPercent.rounded()) : nil,
+                    pressure: snapshot.memory.pressure == .normal ? nil : snapshot.memory.pressure
+                )
                 if let newRecord = processController.freeze(
                     appKey: desc.key,
                     appName: desc.name,
@@ -795,16 +793,12 @@ public final class FreezeEngine: ObservableObject {
                     footprintBytes: decision.footprintBytes,
                     residentBytes: decision.residentBytes,
                     now: snapshot.timestamp,
-                    reason: reason
+                    cause: reason
                 ) {
                     record = newRecord
                     status = .frozen(since: newRecord.frozenAt, pidCount: newRecord.identities.count)
                     noteFreezes(1)
-                    appendEvent(
-                        kind: .frozen,
-                        title: desc.name,
-                        detail: String(localized: "\(reason.prefix(1).uppercased() + reason.dropFirst()) · \(ByteFormatter.format(decision.footprintBytes))")
-                    )
+                    appendEvent(kind: .frozen, title: desc.name, text: .frozenAuto(bytes: decision.footprintBytes, reason: reason))
                 }
             }
 
@@ -831,14 +825,14 @@ public final class FreezeEngine: ObservableObject {
                    footprintBytes: candidate.footprintBytes,
                    residentBytes: candidate.residentBytes,
                    now: snapshot.timestamp,
-                   reason: String(localized: "автопауза сервиса")
+                   cause: .serviceAuto
                ) {
                 record = newRecord
                 noteFreezes(1)
                 appendEvent(
                     kind: .frozen,
                     title: candidate.name,
-                    detail: String(localized: "Автопауза сервиса (\(ByteFormatter.format(newRecord.footprintAtFreezeBytes)))")
+                    text: .serviceAuto(bytes: newRecord.footprintAtFreezeBytes)
                 )
             }
             let service = SnapshotEvaluator.makeTrackedService(decision, frozenRecord: record)
@@ -893,7 +887,7 @@ public final class FreezeEngine: ObservableObject {
         stateDidChange.send()
     }
 
-    private func resumeByKey(_ key: String, fallbackName: String?, reason: String, refreshSnapshot: Bool) {
+    private func resumeByKey(_ key: String, fallbackName: String?, reason: FreezeReason, refreshSnapshot: Bool) {
         guard let record = processController.resume(appKey: key) else { return }
         let now = Date()
         tracking.resetIdle(key)
@@ -903,7 +897,7 @@ public final class FreezeEngine: ObservableObject {
         appendEvent(
             kind: .resumed,
             title: title,
-            detail: String(localized: "Возобновлено (\(reason))")
+            text: .resumed(reason: reason)
         )
         syncFrozenCounters()
 
@@ -923,14 +917,15 @@ public final class FreezeEngine: ObservableObject {
         if totalFrozenFootprintBytes != bytes { totalFrozenFootprintBytes = bytes }
     }
 
-    private func appendEvent(kind: ActivityEvent.Kind, title: String, detail: String) {
+    private func appendEvent(kind: ActivityEvent.Kind, title: String, text: EventText) {
+        let detail = text.localized
         switch kind {
         case .frozen, .resumed, .recovered:
             Log.freeze.notice("\(kind.rawValue, privacy: .public) «\(title, privacy: .public)»: \(detail, privacy: .public)")
         case .relaunched, .skipped:
             Log.engine.info("\(kind.rawValue, privacy: .public) «\(title, privacy: .public)»: \(detail, privacy: .public)")
         }
-        events.insert(ActivityEvent(kind: kind, title: title, detail: detail), at: 0)
+        events.insert(ActivityEvent(kind: kind, title: title, text: text), at: 0)
         if events.count > Self.maxStoredEvents {
             events.removeLast(events.count - Self.maxStoredEvents)
         }

@@ -127,7 +127,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
             onboardingWindow.makeKeyAndOrderFront(nil)
             return
         }
-        let hosting = NSHostingController(rootView: OnboardingView(engine: engine) { [weak self] in
+        let isFirstRun = !engine.settings.hasCompletedOnboarding
+        let hosting = NSHostingController(rootView: OnboardingView(engine: engine, isFirstRun: isFirstRun) { [weak self] in
             self?.onboardingWindow?.close()
         })
         let window = NSWindow(contentViewController: hosting)
@@ -152,7 +153,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
                 if enabled {
                     self.hotKey.register { [weak self] in
                         MainActor.assumeIsolated {
-                            self?.engine.resumeAll(reason: String(localized: "горячая клавиша \(GlobalHotKey.displayString)"))
+                            self?.engine.resumeAll(reason: .hotkey)
                         }
                     }
                 } else {
@@ -169,7 +170,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
         }
         guard ownsInstanceLock else { return }
         overlayController?.removeAll()
-        engine.stopAndResumeAll(reason: String(localized: "завершение работы"))
+        engine.stopAndResumeAll(reason: .shutdown)
     }
 
     func windowWillClose(_ notification: Notification) {
@@ -460,7 +461,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
     }
 
     @objc private func resumeAllFromMenu() {
-        engine.resumeAll(reason: String(localized: "контекстное меню"))
+        engine.resumeAll(reason: .contextMenu)
     }
 
     @objc private func toggleDetachFromMenu() {
@@ -472,7 +473,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
     }
 
     private func quitSafely() {
-        engine.stopAndResumeAll(reason: String(localized: "выход из приложения"))
+        engine.stopAndResumeAll(reason: .appQuit)
         NSApp.terminate(nil)
     }
 

@@ -81,7 +81,7 @@ struct FeatureTests {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("gmrb-store-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: dir) }
         let store = JSONFileStore<[ActivityEvent]>(filename: "events.json", directory: dir, delay: 0)
-        let events = [ActivityEvent(kind: .frozen, title: "Slack", detail: "неактивна 10м 00с")]
+        let events = [ActivityEvent(kind: .frozen, title: "Slack", text: .frozenAuto(bytes: 1 << 30, reason: .idle(seconds: 600, backgroundCPUPercent: nil, pressure: nil)))]
         store.saveNow(events)
         #expect(store.load() == events)
     }
@@ -125,7 +125,70 @@ struct FeatureTests {
     func settingsDefaults() throws {
         let old = try JSONDecoder().decode(EngineSettings.self, from: Data(#"{"idleTimeoutMinutes":15}"#.utf8))
         #expect(old.checkForUpdates)
-        #expect(!old.hasCompletedOnboarding)
+        // Existing users (saved settings without the key) are not shown first-run onboarding.
+        #expect(old.hasCompletedOnboarding)
         #expect(old.idleTimeoutMinutes == 15)
+        // A fresh install is.
+        #expect(!EngineSettings().hasCompletedOnboarding)
+    }
+
+    @MainActor
+    @Test("A found update survives a relaunch and is dropped once installed")
+    func updatePersistence() async throws {
+        let key = "dev.givemyramback.update.available"
+        defer { UserDefaults.standard.removeObject(forKey: key) }
+        let release = ReleaseInfo(version: "9.0.0", url: URL(string: "https://example.com/v9")!)
+        UserDefaults.standard.set(try JSONEncoder().encode(release), forKey: key)
+
+        // Same machine, app relaunched before the next daily check.
+        #expect(UpdateChecker(currentVersion: "2.2.0").available == release)
+        // After updating to that version the reminder is gone, and stays gone.
+        #expect(UpdateChecker(currentVersion: "9.0.0").available == nil)
+        #expect(UserDefaults.standard.data(forKey: key) == nil)
+        #expect(UpdateChecker(currentVersion: "2.2.0").available == nil)
+    }
+
+    @Test("Old state files with a text reason still decode, so crash recovery keeps working")
+    func legacyFrozenRecord() throws {
+        let legacy = Data("""
+        [{"appKey":"app:x:1","appName":"X","mainPID":1,"identities":[{"pid":1,"startTimeSec":1,"startTimeUsec":2,"name":"X"}],
+          "frozenAt":0,"footprintAtFreezeBytes":5,"residentAtFreezeBytes":4,"reason":"неактивна 10м 00с"}]
+        """.utf8)
+        let records = try JSONDecoder().decode([FrozenRecord].self, from: legacy)
+        #expect(records.count == 1)
+        #expect(records[0].identities.first?.pid == 1)
+        #expect(records[0].cause == nil)
+
+        // An unreadable cause must not break the record either.
+        let garbled = Data(#"[{"appKey":"k","appName":"Y","mainPID":2,"identities":[],"frozenAt":0,"footprintAtFreezeBytes":0,"cause":{"bogus":{}}}]"#.utf8)
+        #expect(try JSONDecoder().decode([FrozenRecord].self, from: garbled).first?.appName == "Y")
+
+        let modern = FrozenRecord(appKey: "k", appName: "Z", mainPID: 3, identities: [], frozenAt: Date(timeIntervalSince1970: 5),
+                                  footprintAtFreezeBytes: 1, cause: .idle(seconds: 61, backgroundCPUPercent: 12, pressure: nil))
+        let roundTrip = try JSONDecoder().decode(FrozenRecord.self, from: JSONEncoder().encode(modern))
+        #expect(roundTrip == modern)
+    }
+
+    @Test("Events are stored as data and rendered on display; 2.2.0 logs still load")
+    func structuredEvents() throws {
+        let event = ActivityEvent(kind: .resumed, title: "Slack", text: .resumed(reason: .hotkey))
+        let json = String(decoding: try JSONEncoder().encode(event), as: UTF8.self)
+        #expect(!json.contains("Возобновлено"))   // no rendered text on disk
+        #expect(event.detail.contains("⌃⌥⌘U"))
+
+        let legacy = Data(#"{"id":"9C3F7B1E-2D4A-4C5B-8E6F-0123456789AB","timestamp":0,"kind":"frozen","title":"Old","detail":"Заморожено (1 ГБ, вручную)"}"#.utf8)
+        let old = try JSONDecoder().decode(ActivityEvent.self, from: legacy)
+        #expect(old.text == .legacy("Заморожено (1 ГБ, вручную)"))
+        #expect(old.detail == "Заморожено (1 ГБ, вручную)")
+    }
+
+    @Test("Freeze reasons render their details")
+    func reasonText() {
+        #expect(FreezeReason.idle(seconds: 600, backgroundCPUPercent: 12, pressure: nil).localized.contains("12%"))
+        #expect(FreezeReason.idle(seconds: 600, backgroundCPUPercent: nil, pressure: .critical).localized
+            .contains(MemoryPressureLevel.critical.displayTitle.lowercased()))
+        #expect(!FreezeReason.idle(seconds: 600, backgroundCPUPercent: nil, pressure: .normal).localized.contains(","))
+        #expect(KnownApps.isChatApp("org.telegram.desktop"))
+        #expect(!KnownApps.isChatApp("com.apple.mail"))
     }
 }
